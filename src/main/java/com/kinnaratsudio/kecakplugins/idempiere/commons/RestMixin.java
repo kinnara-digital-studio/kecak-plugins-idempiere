@@ -1058,7 +1058,7 @@ public interface RestMixin extends PropertyEditable, Unclutter {
 
         jsonOptions.put("serviceType", serviceType);
 
-        if(recordId != null && recordId.isEmpty()) {
+        if(recordId != null && !recordId.isEmpty()) {
             jsonOptions.put("RecordID", recordId);
         }
 

@@ -1,6 +1,6 @@
 [
   {
-    "title": "@@idempiere.webServiceTool@@",
+    "title": "@@idempiere.webServiceRequest@@",
     "properties": [
       {
         "name": "recordId",
@@ -20,6 +20,41 @@
           {
             "key": "value",
             "label": "@@idempiere.value@@",
+            "required": "true"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "@@idempiere.webServiceResponse@@",
+    "properties" : [
+      {
+        "name": "varResponseRecordId",
+        "label": "@@idempiere.varResponseRecordId@@",
+        "description": "@@idempiere.varResponseRecordId.desc@@",
+        "type": "textfield",
+        "control_field" : "method",
+        "control_value" : "create_data|update_data|create_update_data|delete_data",
+        "control_use_regex": "true"
+      },
+      {
+        "name": "varResponseRowData",
+        "label": "@@idempiere.varResponseRowData@@",
+        "description": "@@idempiere.varResponseRowData.desc@@",
+        "type": "grid",
+        "control_field" : "method",
+        "control_value" : "query_data|read_data",
+        "control_use_regex": "true",
+        "columns": [
+          {
+            "key": "fieldColumn",
+            "label": "@@idempiere.fieldColumn@@",
+            "required": "true"
+          },
+          {
+            "key": "wfVariable",
+            "label": "@@idempiere.wfVariable@@",
             "required": "true"
           }
         ]

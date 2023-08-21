@@ -13,6 +13,8 @@ import org.joget.apps.app.service.AppUtil;
 import org.joget.commons.util.LogUtil;
 import org.joget.plugin.base.DefaultApplicationPlugin;
 import org.joget.plugin.base.PluginManager;
+import org.joget.workflow.model.WorkflowAssignment;
+import org.joget.workflow.model.service.WorkflowManager;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -48,10 +50,61 @@ public class IdempiereWebServiceTool extends DefaultApplicationPlugin implements
     }
 
     @Override
-    public Object execute(Map map) {
-        final String primaryKey = getRecordId();
-        final DataRowField[] dataRow = getDataRow();
-        JSONObject jsonResponse = executeService(primaryKey, dataRow);
+    public Object execute(Map properties) {
+        final PluginManager pluginManager = (PluginManager) properties.get("pluginManager");
+        final WorkflowManager workflowManager = (WorkflowManager) pluginManager.getBean("workflowManager");
+        final WorkflowAssignment workflowAssignment = (WorkflowAssignment) properties.get("workflowAssignment");
+
+        final String primaryKey = getRecordId(properties);
+        final DataRowField[] dataRow = getDataRow(properties);
+        final JSONObject jsonResponse = executeService(primaryKey, dataRow);
+
+        if(jsonResponse == null) {
+            return null;
+        }
+
+        if(jsonResponse.has("StandardResponse")) {
+            try {
+                final String recordId = jsonResponse.getJSONObject("StandardResponse")
+                        .getString("@RecordID");
+
+                final String varResponseRecordId = getVarResponseRecordId(properties);
+                workflowManager.processVariable(workflowAssignment.getProcessId(), varResponseRecordId, recordId);
+            } catch (JSONException e) {
+                LogUtil.error(getClassName(), e, e.getMessage());
+            }
+        } else if(jsonResponse.has("WindowTabData")) {
+            try {
+                final Object objDataRow = jsonResponse
+                        .getJSONObject("WindowTabData")
+                        .getJSONObject("DataSet")
+                        .getJSONObject("DataRow");
+
+                final JSONObject jsonDataRow;
+                if (objDataRow instanceof JSONArray) {
+                    jsonDataRow = JSONStream.of((JSONArray) objDataRow, Try.onBiFunction(JSONArray::getJSONObject))
+                            .findFirst()
+                            .orElseThrow(() -> new IdempiereClientException("DataRow is empty"));
+                } else if (objDataRow instanceof JSONObject) {
+                    jsonDataRow = (JSONObject) objDataRow;
+                } else {
+                    return null;
+                }
+
+                final Map<String, String> varResponseRowData = getVarResponseRowData(properties);
+                final JSONArray jsonField = jsonDataRow.getJSONArray("field");
+                JSONStream.of(jsonField, Try.onBiFunction(JSONArray::getJSONObject))
+                        .forEach(Try.onConsumer(json -> {
+                            final String column = json.getString("@column");
+                            final String value = json.getString("val");
+                            final String workflowVariable = varResponseRowData.get(column);
+                            workflowManager.processVariable(workflowAssignment.getProcessId(), workflowVariable, value);
+                        }));
+
+            } catch (JSONException | IdempiereClientException e) {
+                LogUtil.error(getClassName(), e, e.getMessage());
+            }
+        }
         return null;
     }
 
@@ -174,17 +227,27 @@ public class IdempiereWebServiceTool extends DefaultApplicationPlugin implements
         }
     }
 
-    protected String getRecordId() {
-        return getPropertyString("recordId");
+    protected String getRecordId(Map properties) {
+        return String.valueOf(properties.getOrDefault("recordId", ""));
     }
 
-    protected DataRowField[] getDataRow() {
-        return Arrays.stream(getPropertyGrid("dataRow"))
+    protected DataRowField[] getDataRow(Map properties) {
+        return Arrays.stream((Object[])properties.get("dataRow"))
+                .map(o -> (Map<String, String>)o)
                 .map(m -> {
                     final String column = m.get("column");
                     final String value = m.get("value");
                     return new DataRowField(column, value);
                 })
                 .toArray(DataRowField[]::new);
+    }
+
+    protected String getVarResponseRecordId(Map properties) {
+        return String.valueOf(properties.getOrDefault("varResponseRecordId", ""));
+    }
+    protected Map<String, String> getVarResponseRowData(Map properties) {
+        return Arrays.stream((Object[]) properties.get("varResponseRowData"))
+                .map(o -> (Map<String, String>)o)
+                .collect(Collectors.toMap(m -> String.valueOf(m.get("fieldColumn")), m -> String.valueOf(m.get("wfVariable"))));
     }
 }
