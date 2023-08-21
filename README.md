@@ -21,3 +21,5 @@ All plugins require Login and Web Service Security configuration.
 ![image](https://github.com/kinnara-digital-studio/kecak-plugins-idempiere/assets/5206195/1779a27f-368b-4052-b287-49ebe66b6014)
 
 **Warning !!!!** To ignore SSL (https) certificate error go to Advance configuration and check Ignore SSL Certificate Error. Be aware this means your connection from Kecak to Idempiere is not guaranteed to be secure anymore
+
+![image](https://github.com/kinnara-digital-studio/kecak-plugins-idempiere/assets/5206195/6dd85f24-ecee-480e-a15e-df9227f9f619)
