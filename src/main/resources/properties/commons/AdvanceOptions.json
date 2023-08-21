@@ -1,0 +1,29 @@
+[
+  {
+    "title": "Advance",
+    "properties" : [
+      {
+        "name" : "ignoreCertificateError",
+        "label" : "@@idempiere.ignoreCertificateError@@",
+        "type" : "checkbox",
+        "options" : [
+          {
+            "value" : "true",
+            "label" : ""
+          }
+        ]
+      },
+      {
+        "name" : "debug",
+        "label" : "@@idempiere.debug@@",
+        "type" : "checkbox",
+        "options" : [
+          {
+            "value" : "true",
+            "label" : ""
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,19 @@
+[
+  {
+    "title": "@@idempiere.optionsBinder@@",
+    "properties": [
+      {
+        "name": "valueField",
+        "label": "@@idempiere.valueField@@",
+        "type": "textfield",
+        "required": "true"
+      },
+      {
+        "name": "labelField",
+        "label": "@@idempiere.labelField@@",
+        "type": "textfield",
+        "required": "true"
+      }
+    ]
+  }
+]

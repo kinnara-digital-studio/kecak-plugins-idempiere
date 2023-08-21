@@ -1,0 +1,63 @@
+[
+  {
+    "title": "Login Request",
+    "properties": [
+      {
+        "name": "baseUrl",
+        "label": "@@idempiere.baseUrl@@",
+        "type": "textfield",
+        "required": "true"
+      },
+      {
+        "name": "username",
+        "label": "@@idempiere.username@@",
+        "type": "textfield",
+        "required": "true"
+      },
+      {
+        "name": "password",
+        "label": "@@idempiere.password@@",
+        "type": "password",
+        "required": "true"
+      },
+      {
+        "name": "language",
+        "type": "textfield",
+        "label": "@@idempiere.language@@",
+        "value": "en_US",
+        "required": "true"
+      },
+      {
+        "name": "clientId",
+        "type": "textfield",
+        "label": "@@idempiere.clientId@@",
+        "required": "true",
+        "regex_validation": "[0-9]*"
+      },
+      {
+        "name": "roleId",
+        "type": "textfield",
+        "label": "@@idempiere.roleId@@",
+        "required": "true",
+        "regex_validation": "[0-9]*"
+      },
+      {
+        "name": "orgId",
+        "type": "textfield",
+        "label": "@@idempiere.orgId@@",
+        "regex_validation": "[0-9]*"
+      },
+      {
+        "name": "warehouseId",
+        "type": "textfield",
+        "label": "@@idempiere.warehouseId@@",
+        "regex_validation": "[0-9]*"
+      },
+      {
+        "name": "stage",
+        "type": "hidden",
+        "value": "0"
+      }
+    ]
+  }
+]

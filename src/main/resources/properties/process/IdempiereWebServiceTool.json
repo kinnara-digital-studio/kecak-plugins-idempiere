@@ -1,0 +1,29 @@
+[
+  {
+    "title": "@@idempiere.webServiceTool@@",
+    "properties": [
+      {
+        "name": "recordId",
+        "label": "@@idempiere.recordId@@",
+        "type": "textfield"
+      },
+      {
+        "name": "dataRow",
+        "label": "@@idempiere.dataRow@@",
+        "type": "grid",
+        "columns": [
+          {
+            "key": "column",
+            "label": "@@idempiere.column@@",
+            "required": "true"
+          },
+          {
+            "key": "value",
+            "label": "@@idempiere.value@@",
+            "required": "true"
+          }
+        ]
+      }
+    ]
+  }
+]

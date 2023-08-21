@@ -1,0 +1,13 @@
+[
+  {
+    "title": "@@idempiere.dataListBinder@@",
+    "properties": [
+      {
+        "name": "primaryKeyColumn",
+        "label": "@@idempiere.primaryKeyColumn@@",
+        "type": "textfield",
+        "required": "true"
+      }
+    ]
+  }
+]
