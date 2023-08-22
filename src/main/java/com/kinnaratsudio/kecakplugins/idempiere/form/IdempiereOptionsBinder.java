@@ -27,7 +27,7 @@ import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
 public class IdempiereOptionsBinder extends FormBinder implements FormLoadOptionsBinder, FormAjaxOptionsBinder, RestMixin {
-    public final static String LABEL = "Idempiere Options Binder";
+    public final static String LABEL = "iDempiere Options Binder";
 
     @Override
     public boolean useAjax() {

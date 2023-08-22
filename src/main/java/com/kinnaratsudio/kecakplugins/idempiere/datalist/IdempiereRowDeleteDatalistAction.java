@@ -31,7 +31,7 @@ import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
 public class IdempiereRowDeleteDatalistAction extends DataListActionDefault implements RestMixin {
-    public final static String LABEL = "Idempiere Delete";
+    public final static String LABEL = "iDempiere Delete";
 
     @Override
     public String getLinkLabel() {

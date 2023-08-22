@@ -29,7 +29,7 @@ import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
 public class IdempiereWebServiceTool extends DefaultApplicationPlugin implements RestMixin {
-    public final static String LABEL = "Idempiere Web Service Tool";
+    public final static String LABEL = "iDempiere Web Service Tool";
 
     @Override
     public String getName() {

@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class IdempiereFormBinder extends FormBinder implements FormLoadElementBinder, FormStoreElementBinder, FormDataDeletableBinder, RestMixin {
-    public final static String LABEL = "Idempiere Form Binder";
+    public final static String LABEL = "iDempiere Form Binder";
 
     @Override
     public String getFormId() {

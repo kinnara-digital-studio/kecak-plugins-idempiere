@@ -8,9 +8,9 @@
     <name>kecak-plugins-idempiere</name>
     <url>http://www.kecak.org</url>
     <scm>
-        <connection>scm:git:ssh://git@gitlab.com:kinnarastudio/kecak-plugins-idempiere.git</connection>
-        <developerConnection>scm:git:ssh://git@gitlab.com:kinnarastudio/kecak-plugins-idempiere.git</developerConnection>
-        <url>ssh://git@gitlab.com:kinnarastudio/kecak-plugins-idempiere.git</url>
+        <connection>scm:git:ssh://git@github.com:kinnara-digital-studio/kecak-plugins-idempiere.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com:kinnara-digital-studio/kecak-plugins-idempiere.git</developerConnection>
+        <url>ssh://git@github.com:kinnara-digital-studio/kecak-plugins-idempiere.git</url>
         <tag>HEAD</tag>
     </scm>
     <build>

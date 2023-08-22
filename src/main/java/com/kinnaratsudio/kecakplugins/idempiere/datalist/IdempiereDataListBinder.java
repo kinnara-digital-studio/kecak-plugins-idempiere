@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class IdempiereDataListBinder extends DataListBinderDefault implements RestMixin {
-    public final static String LABEL = "Idempiere DataList Binder";
+    public final static String LABEL = "iDempiere DataList Binder";
 
     @Override
     public DataListColumn[] getColumns() {
