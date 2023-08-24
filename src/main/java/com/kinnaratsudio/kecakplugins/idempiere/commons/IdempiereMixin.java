@@ -11,7 +11,6 @@ import com.kinnarastudio.commons.jsonstream.JSONStream;
 import com.kinnaratsudio.kecakplugins.idempiere.exception.IdempiereClientException;
 import com.kinnaratsudio.kecakplugins.idempiere.model.DataRow;
 import com.kinnaratsudio.kecakplugins.idempiere.model.DataRowField;
-import com.kinnaratsudio.kecakplugins.idempiere.model.DataSet;
 import com.kinnaratsudio.kecakplugins.idempiere.model.Field;
 import com.kinnaratsudio.kecakplugins.idempiere.service.JsonHandler;
 import org.apache.http.Header;
@@ -27,6 +26,7 @@ import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.ssl.SSLContextBuilder;
+import org.joget.apps.app.dao.AppDefinitionDao;
 import org.joget.apps.app.dao.DatalistDefinitionDao;
 import org.joget.apps.app.dao.FormDefinitionDao;
 import org.joget.apps.app.model.AppDefinition;
@@ -44,6 +44,7 @@ import org.joget.commons.util.LogUtil;
 import org.joget.plugin.base.PluginManager;
 import org.joget.plugin.property.model.PropertyEditable;
 import org.joget.workflow.model.WorkflowAssignment;
+import org.joget.workflow.model.service.WorkflowManager;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -72,7 +73,10 @@ import static org.apache.http.entity.mime.HttpMultipartMode.BROWSER_COMPATIBLE;
 /**
  * @author aristo
  */
-public interface RestMixin extends PropertyEditable, Unclutter {
+public interface IdempiereMixin extends PropertyEditable, Unclutter {
+    String APP_ID = "idempiereconfig";
+    String FORM_LOGIN = "idempiereLogin";
+
     Map<String, Form> formCache = new HashMap<>();
 
     /**
@@ -852,12 +856,20 @@ public interface RestMixin extends PropertyEditable, Unclutter {
                 .orElse(value);
     }
 
+    default Form generateForm(String formDefId) throws IdempiereClientException {
+        final AppDefinition appDef = AppUtil.getCurrentAppDefinition();
+        if(appDef == null) {
+            throw new IdempiereClientException("Error retrieving current application definition");
+        }
+
+        return generateForm(appDef, formDefId);
+    }
     /**
      * @param formDefId
      * @return
      */
     @Nonnull
-    default Form generateForm(String formDefId) throws IdempiereClientException {
+    default Form generateForm(AppDefinition appDefinition, String formDefId) throws IdempiereClientException {
         ApplicationContext appContext = AppUtil.getApplicationContext();
         FormService formService = (FormService) appContext.getBean("formService");
         FormDefinitionDao formDefinitionDao = (FormDefinitionDao) appContext.getBean("formDefinitionDao");
@@ -867,9 +879,9 @@ public interface RestMixin extends PropertyEditable, Unclutter {
             return formCache.get(formDefId);
 
         // proceed without cache
-        AppDefinition appDef = AppUtil.getCurrentAppDefinition();
-        if (appDef != null && formDefId != null && !formDefId.isEmpty()) {
-            FormDefinition formDef = formDefinitionDao.loadById(formDefId, appDef);
+
+        if (formDefId != null && !formDefId.isEmpty()) {
+            FormDefinition formDef = formDefinitionDao.loadById(formDefId, appDefinition);
             if (formDef != null) {
                 String json = formDef.getJson();
                 Form form = (Form) formService.createElementFromJson(json);
@@ -1156,4 +1168,20 @@ public interface RestMixin extends PropertyEditable, Unclutter {
                 .collect(JSONCollectors.toJSONArray());
     }
 
+    default AppDefinition getIdempiereConfAppDefinition() throws IdempiereClientException {
+        final AppDefinitionDao appDefinitionDao = (AppDefinitionDao) AppUtil.getApplicationContext().getBean("appDefinitionDao");
+        final Long appVersion = appDefinitionDao.getPublishedVersion(APP_ID);
+        final AppDefinition appDefinition = appDefinitionDao.loadVersion(APP_ID, appVersion);
+
+        if(appDefinition == null) {
+            throw new IdempiereClientException("Application [" + APP_ID + "] is not installed or published");
+        }
+
+        return appDefinition;
+    }
+
+    default Form getLoginForm() throws IdempiereClientException {
+        final AppDefinition appDefinition = getIdempiereConfAppDefinition();
+        return generateForm(appDefinition, FORM_LOGIN);
+    }
 }

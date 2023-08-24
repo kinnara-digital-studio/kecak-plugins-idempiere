@@ -3,7 +3,7 @@ package com.kinnaratsudio.kecakplugins.idempiere.process;
 import com.kinnarastudio.commons.Try;
 import com.kinnarastudio.commons.jsonstream.JSONCollectors;
 import com.kinnarastudio.commons.jsonstream.JSONStream;
-import com.kinnaratsudio.kecakplugins.idempiere.commons.RestMixin;
+import com.kinnaratsudio.kecakplugins.idempiere.commons.IdempiereMixin;
 import com.kinnaratsudio.kecakplugins.idempiere.exception.IdempiereClientException;
 import com.kinnaratsudio.kecakplugins.idempiere.model.DataRowField;
 import org.apache.http.HttpResponse;
@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
-public class IdempiereWebServiceTool extends DefaultApplicationPlugin implements RestMixin {
+public class IdempiereWebServiceTool extends DefaultApplicationPlugin implements IdempiereMixin {
     public final static String LABEL = "iDempiere Web Service Tool";
 
     @Override

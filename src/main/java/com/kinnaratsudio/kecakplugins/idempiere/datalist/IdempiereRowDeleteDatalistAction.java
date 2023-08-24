@@ -3,7 +3,7 @@ package com.kinnaratsudio.kecakplugins.idempiere.datalist;
 import com.kinnarastudio.commons.Try;
 import com.kinnarastudio.commons.jsonstream.JSONCollectors;
 import com.kinnarastudio.commons.jsonstream.JSONStream;
-import com.kinnaratsudio.kecakplugins.idempiere.commons.RestMixin;
+import com.kinnaratsudio.kecakplugins.idempiere.commons.IdempiereMixin;
 import com.kinnaratsudio.kecakplugins.idempiere.exception.IdempiereClientException;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
-public class IdempiereRowDeleteDatalistAction extends DataListActionDefault implements RestMixin {
+public class IdempiereRowDeleteDatalistAction extends DataListActionDefault implements IdempiereMixin {
     public final static String LABEL = "iDempiere Delete";
 
     @Override

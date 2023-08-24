@@ -3,7 +3,7 @@ package com.kinnaratsudio.kecakplugins.idempiere.datalist;
 import com.kinnarastudio.commons.Try;
 import com.kinnarastudio.commons.jsonstream.JSONCollectors;
 import com.kinnarastudio.commons.jsonstream.JSONStream;
-import com.kinnaratsudio.kecakplugins.idempiere.commons.RestMixin;
+import com.kinnaratsudio.kecakplugins.idempiere.commons.IdempiereMixin;
 import com.kinnaratsudio.kecakplugins.idempiere.exception.IdempiereClientException;
 import com.kinnaratsudio.kecakplugins.idempiere.model.DataRowField;
 import org.apache.http.HttpResponse;
@@ -25,7 +25,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class IdempiereDataListBinder extends DataListBinderDefault implements RestMixin {
+public class IdempiereDataListBinder extends DataListBinderDefault implements IdempiereMixin {
     public final static String LABEL = "iDempiere DataList Binder";
 
     @Override
@@ -91,8 +91,10 @@ public class IdempiereDataListBinder extends DataListBinderDefault implements Re
             } else return null;
 
             return JSONStream.of(jsonDataRow, Try.onBiFunction(JSONArray::getJSONObject))
+
                     .map(Try.onFunction(json -> json.getJSONArray("field")))
                     .map(jsonArrayRow -> JSONStream.of(jsonArrayRow, Try.onBiFunction(JSONArray::getJSONObject))
+                            .filter(Try.toNegate(this::isNilValue))
                             .collect(Collectors.toMap(Try.onFunction(json -> json.getString("@column")), Try.onFunction(json -> json.getString("val")))))
                     .collect(Collectors.toCollection(DataListCollection::new));
 
@@ -266,5 +268,9 @@ public class IdempiereDataListBinder extends DataListBinderDefault implements Re
             final JSONObject jsonResponseBody = new JSONObject(br.lines().collect(Collectors.joining()));
             return jsonResponseBody;
         }
+    }
+
+    protected boolean isNilValue(JSONObject jsonField) throws JSONException {
+        return jsonField.getJSONObject("val").getBoolean("@nil");
     }
 }

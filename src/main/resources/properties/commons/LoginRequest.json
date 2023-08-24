@@ -6,31 +6,35 @@
         "name": "baseUrl",
         "label": "@@idempiere.baseUrl@@",
         "type": "textfield",
+        "value": "#idempiereConfig.baseUrl#",
         "required": "true"
       },
       {
         "name": "username",
         "label": "@@idempiere.username@@",
         "type": "textfield",
+        "value": "#idempiereConfig.user#",
         "required": "true"
       },
       {
         "name": "password",
         "label": "@@idempiere.password@@",
-        "type": "password",
+        "type": "textfield",
+        "value": "#idempiereConfig.password#",
         "required": "true"
       },
       {
         "name": "language",
         "type": "textfield",
         "label": "@@idempiere.language@@",
-        "value": "en_US",
+        "value": "#idempiereConfig.lang#",
         "required": "true"
       },
       {
         "name": "clientId",
         "type": "textfield",
         "label": "@@idempiere.clientId@@",
+        "value": "#idempiereConfig.clientId#",
         "required": "true",
         "regex_validation": "[0-9]*"
       },
@@ -38,6 +42,7 @@
         "name": "roleId",
         "type": "textfield",
         "label": "@@idempiere.roleId@@",
+        "value": "#idempiereConfig.roleId#",
         "required": "true",
         "regex_validation": "[0-9]*"
       },
@@ -45,18 +50,20 @@
         "name": "orgId",
         "type": "textfield",
         "label": "@@idempiere.orgId@@",
+        "value": "#idempiereConfig.orgId#",
         "regex_validation": "[0-9]*"
       },
       {
         "name": "warehouseId",
         "type": "textfield",
         "label": "@@idempiere.warehouseId@@",
+        "value": "#idempiereConfig.warehouseId#",
         "regex_validation": "[0-9]*"
       },
       {
         "name": "stage",
         "type": "hidden",
-        "value": "0"
+        "value": "#idempiereConfig.stage#"
       }
     ]
   }
