@@ -30,14 +30,14 @@ import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
-public class IdempiereRowDeleteDatalistAction extends DataListActionDefault implements IdempiereMixin {
-    public final static String LABEL = "iDempiere Delete";
+public class IdempiereDatalistAction extends DataListActionDefault implements IdempiereMixin {
+    public final static String LABEL = "iDempiere Action";
 
     @Override
     public String getLinkLabel() {
         String label = getPropertyString("label");
         if (label == null || label.isEmpty()) {
-            label = "Delete";
+            label = "Row Action";
         }
         return label;    }
 
@@ -129,9 +129,11 @@ public class IdempiereRowDeleteDatalistAction extends DataListActionDefault impl
     public String getPropertyOptions() {
         final String[] resources = new String[]{
                 "/properties/commons/LoginRequest.json",
-                "/properties/commons/WebServiceSecurity.json",
+                "/properties/commons/WebServiceType.json",
+                "/properties/commons/WebServiceParameters.json",
+                "/properties/commons/WebServiceFieldInput.json",
                 "/properties/commons/AdvanceOptions.json",
-                "/properties/datalist/IdempiereRowDeleteDataListAction.json"
+                "/properties/datalist/IdempiereDataListAction.json"
         };
 
         return Arrays.stream(resources)

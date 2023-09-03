@@ -3,29 +3,28 @@ package com.kinnaratsudio.kecakplugins.idempiere.form;
 import com.kinnarastudio.commons.Try;
 import com.kinnarastudio.commons.jsonstream.JSONCollectors;
 import com.kinnarastudio.commons.jsonstream.JSONStream;
-import com.kinnaratsudio.kecakplugins.idempiere.commons.IdempiereMixin;
+import com.kinnarastudio.idempiere.exception.WebServiceBuilderException;
+import com.kinnarastudio.idempiere.exception.WebServiceRequestException;
+import com.kinnarastudio.idempiere.exception.WebServiceResponseException;
+import com.kinnarastudio.idempiere.model.*;
+import com.kinnarastudio.idempiere.type.ServiceMethod;
+import com.kinnarastudio.idempiere.webservice.ModelOrientedWebService;
 import com.kinnaratsudio.kecakplugins.idempiere.exception.IdempiereClientException;
-import com.kinnaratsudio.kecakplugins.idempiere.model.DataRowField;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpUriRequest;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.form.model.*;
 import org.joget.apps.form.service.FormUtil;
 import org.joget.commons.util.LogUtil;
 import org.joget.plugin.base.PluginManager;
+import org.joget.workflow.model.service.WorkflowManager;
+import org.joget.workflow.util.WorkflowUtil;
 import org.json.JSONArray;
 import org.json.JSONException;
-import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class IdempiereFormBinder extends FormBinder implements FormLoadElementBinder, FormStoreElementBinder, FormDataDeletableBinder, IdempiereMixin {
+public class IdempiereFormBinder extends FormBinder implements FormLoadElementBinder, FormStoreElementBinder, FormDataDeletableBinder {
     public final static String LABEL = "iDempiere Form Binder";
 
     @Override
@@ -43,24 +42,33 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
     @Override
     public FormRowSet load(Element element, String primaryKey, FormData formData) {
         try {
-            final JSONObject jsonResponse = executeService(primaryKey);
-            if (jsonResponse == null) return null;
+            final Integer intPrimaryKey = Optional.ofNullable(primaryKey)
+                    .map(Try.onFunction(Integer::valueOf, (NumberFormatException e) -> 0))
+                    .orElse(0);
+            final WindowTabData response = executeService(intPrimaryKey);
 
-            final JSONArray jsonField = jsonResponse
-                    .getJSONObject("WindowTabData")
-                    .getJSONObject("DataSet")
-                    .getJSONObject("DataRow")
-                    .getJSONArray("field");
+            if (!response.isSucceed()) {
+                throw new IdempiereClientException("Error loading data [" + primaryKey + "]");
+            }
 
-            final FormRow row = JSONStream.of(jsonField, Try.onBiFunction(JSONArray::getJSONObject))
-                    .filter(this::nonNilValue)
-                    .collect(Collectors.toMap(Try.onFunction(j -> j.getString("@column")), Try.onFunction(j -> j.getString("val")), (ignore, accept) -> accept, FormRow::new));
+            final FormRow row = Arrays.stream(response.getDataRows())
+                    .findFirst()
+                    .map(DataRow::getFieldEntries)
+                    .map(Arrays::stream)
+                    .orElseGet(Stream::empty)
+                    .collect(Collectors.toMap(FieldEntry::getColumn, FieldEntry::getValue, (ignore, accept) -> accept, FormRow::new));
 
-            FormRowSet rowSet = new FormRowSet();
+            Optional.of(getTablePrimaryKey())
+                    .map(row::getProperty)
+                    .ifPresent(row::setId);
+
+            formData.clearFormErrors();
+
+            final FormRowSet rowSet = new FormRowSet();
             rowSet.add(row);
             return rowSet;
 
-        } catch (JSONException e) {
+        } catch (JSONException | IdempiereClientException e) {
             LogUtil.error(getClassName(), e, e.getMessage());
             return null;
         }
@@ -69,31 +77,47 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
     @Override
     public FormRowSet store(Element element, FormRowSet rowSet, FormData formData) {
         try {
-            final FormRow rowToStore = Optional.ofNullable(rowSet)
+            final FormRow row = Optional.ofNullable(rowSet)
                     .map(Collection::stream)
                     .orElseGet(Stream::empty)
                     .findFirst()
                     .orElseThrow(() -> new IdempiereClientException("No record to store"));
 
-            final JSONObject jsonResponse = executeService(rowToStore);
-            if (jsonResponse == null) throw new IdempiereClientException("Error retriving response");
+            final StandardResponse response = executeService(row);
 
-            final JSONObject jsonStarndardResponse = jsonResponse
-                    .getJSONObject("StandardResponse");
-
-            if(isError(jsonStarndardResponse)) {
-                final String error = jsonStarndardResponse.getString("Error");
-                final String id = element.getPropertyString(FormUtil.PROPERTY_ID);
-                formData.addFormError(id, error);
-            } else {
-                final String recordId = jsonStarndardResponse.getString("@RecordID");
-                rowToStore.setId(recordId);
+            if (response.isError()) {
+                throw new IdempiereClientException(response.getErrorMessage());
             }
 
-            return rowSet;
+            final String recordId = String.valueOf(response.getRecordId());
+            row.setId(recordId);
+
+            final String activityId = formData.getActivityId();
+            final String processId = formData.getProcessId();
+            if (activityId != null || processId != null) {
+                WorkflowManager workflowManager = (WorkflowManager) WorkflowUtil.getApplicationContext().getBean("workflowManager");
+
+                // recursively find element(s) mapped to workflow variable
+                Map<String, String> variableMap = new HashMap<>();
+                variableMap = storeWorkflowVariables(element, row, variableMap);
+                if (activityId != null) {
+                    workflowManager.activityVariables(activityId, variableMap);
+                } else {
+                    workflowManager.processVariables(processId, variableMap);
+                }
+            }
+
+            final FormRowSet rowSetToStore = new FormRowSet();
+            rowSetToStore.add(row);
+            rowSetToStore.setMultiRow(false);
+            return rowSetToStore;
 
         } catch (JSONException | IdempiereClientException e) {
             LogUtil.error(getClassName(), e, e.getMessage());
+
+            final Form rootForm = FormUtil.findRootForm(element);
+            final String id = rootForm.getPropertyString(FormUtil.PROPERTY_ID);
+            formData.addFormError(id, e.getMessage());
 
             return rowSet;
         }
@@ -131,7 +155,8 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
     public String getPropertyOptions() {
         final String[] resources = new String[]{
                 "/properties/commons/LoginRequest.json",
-                "/properties/commons/WebServiceSecurity.json",
+                "/properties/commons/WebServiceType.json",
+                "/properties/commons/WebServiceParameters.json",
                 "/properties/commons/AdvanceOptions.json",
         };
 
@@ -156,8 +181,25 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
         return getPropertyString("password");
     }
 
-    protected String getMethod() {
-        return getPropertyString("method");
+    protected ServiceMethod getMethod() {
+        switch (getPropertyString("method")) {
+            case "create_data":
+                return ServiceMethod.CREATE_DATA;
+            case "create_update_data":
+                return ServiceMethod.CREATE_OR_UPDATE_DATA;
+            case "delete_data":
+                return ServiceMethod.DELETE_DATA;
+            case "read_data":
+                return ServiceMethod.READ_DATA;
+            case "update_data":
+                return ServiceMethod.UPDATE_DATA;
+            case "get_list":
+                return ServiceMethod.GET_LIST;
+            case "set_docaction":
+                return ServiceMethod.SET_DOCUMENT_ACTION;
+            default:
+                return ServiceMethod.QUERY_DATA;
+        }
     }
 
     protected String getService() {
@@ -168,150 +210,147 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
         return getPropertyString("language");
     }
 
-    protected String getClientId() {
-        return getPropertyString("clientId");
+    protected Integer getClientId() {
+        return Integer.valueOf(getPropertyString("clientId"));
     }
 
-    protected String getRoleId() {
-        return getPropertyString("roleId");
+    protected Integer getRoleId() {
+        return Integer.valueOf(getPropertyString("roleId"));
     }
 
-    protected String getOrgId() {
-        return getPropertyString("orgId");
+    protected Integer getOrgId() {
+        return Integer.valueOf(getPropertyString("orgId"));
     }
 
-    protected String getWarehouseId() {
-        return getPropertyString("warehouseId");
+    protected Integer getWarehouseId() {
+        return Integer.valueOf(getPropertyString("warehouseId"));
     }
 
-    protected String getStage() {
-        return getPropertyString("stage");
+    protected Integer getStage() {
+        return Integer.valueOf(getPropertyString("stage"));
     }
 
     protected String getTable() {
         return getPropertyString("table");
     }
 
+    protected boolean isIgnoreCertificateError() {
+        return "true".equalsIgnoreCase(getPropertyString("ignoreCertificateError"));
+    }
+
     protected String getTablePrimaryKey() {
         return getTable() + "_ID";
     }
 
-    protected JSONObject executeService(String primaryKey) {
+    protected WindowTabData executeService(Integer primaryKey) throws IdempiereClientException {
+        final String username = getUsername();
+        final String password = getPassword();
+        final ServiceMethod method = getMethod();
+        final String serviceType = getService();
+        final String language = getLanguage();
+        final Integer clientId = getClientId();
+        final Integer roleId = getRoleId();
+        final Integer orgId = getOrgId();
+        final Integer warehouseId = getWarehouseId();
+        final Integer stage = getStage();
+
+        final ModelOrientedWebService.Builder builder = new ModelOrientedWebService.Builder()
+                .setBaseUrl(getBaseUrl())
+                .setServiceType(serviceType)
+                .setMethod(method)
+                .setLoginRequest(new LoginRequest(username, password, language, clientId, roleId, orgId, warehouseId))
+                .setTable(getTable());
+
+        if (primaryKey != null && primaryKey > 0) {
+            builder.setRecordId(primaryKey);
+        }
+
+        if (isIgnoreCertificateError()) {
+            builder.ignoreSslCertificateError();
+        }
+
         try {
-            final StringBuilder url = new StringBuilder(getBaseUrl() + "/ADInterface/services/rest/model_adservice/" + getMethod());
-
-            final Map<String, String> headers = new HashMap<>();
-            headers.put("Accept", "application/json");
-
-            final String username = getUsername();
-            final String password = getPassword();
-            final String method = getMethod();
-            final String serviceType = getService();
-            final String language = getLanguage();
-            final String clientId = getClientId();
-            final String roleId = getRoleId();
-            final String orgId = getOrgId();
-            final String warehouseId = getWarehouseId();
-            final String stage = getStage();
-
-            final JSONObject jsonPayload = generatePayload(method, serviceType, primaryKey, username, password, language, clientId, roleId, orgId, warehouseId, stage, null, null);
-
-            final HttpUriRequest request = getHttpRequest(url.toString(), "POST", headers, jsonPayload.toString());
-
-            // kirim request ke server
-            final HttpClient client = getHttpClient(isIgnoreCertificateError());
-            final HttpResponse response = client.execute(request);
-
-            final int statusCode = getResponseStatus(response);
-            if (getStatusGroupCode(statusCode) != 200) {
-                throw new IdempiereClientException("Response code [" + statusCode + "] is not 200 (Success)");
-            } else if (statusCode != 200) {
-                LogUtil.warn(getClassName(), "Response code [" + statusCode + "] is considered as success");
-            }
-
-            if (!isJsonResponse(response)) {
-                throw new IdempiereClientException("Content type is not JSON");
-            }
-
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(response.getEntity().getContent()))) {
-                final JSONObject jsonResponseBody = new JSONObject(br.lines().collect(Collectors.joining()));
-                return jsonResponseBody;
-            }
-        } catch (IOException | IdempiereClientException | JSONException e) {
-            LogUtil.error(getClassName(), e, e.getMessage());
-            return null;
+            final ModelOrientedWebService webService = builder.build();
+            return (WindowTabData) webService.execute();
+        } catch (WebServiceBuilderException | WebServiceResponseException | WebServiceRequestException e) {
+            throw new IdempiereClientException(e);
         }
     }
 
-    protected JSONObject executeService(FormRow row) {
+    protected StandardResponse executeService(FormRow row) throws IdempiereClientException {
+        final String username = getUsername();
+        final String password = getPassword();
+        final ServiceMethod method = getMethod();
+        final String serviceType = getService();
+        final String language = getLanguage();
+        final Integer clientId = getClientId();
+        final Integer roleId = getRoleId();
+        final Integer orgId = getOrgId();
+        final Integer warehouseId = getWarehouseId();
+        final Integer stage = getStage();
+
+        final String tablePrimaryKey = getTablePrimaryKey();
+
+        final FieldEntry[] fieldEntries = row.entrySet().stream()
+                // do not send ID field
+                .filter(e -> {
+                    final String propName = String.valueOf(e.getKey());
+                    return !propName.isEmpty() && !"id".equalsIgnoreCase(propName) && !tablePrimaryKey.equals(propName);
+                })
+                .filter(e -> !String.valueOf(e.getValue()).isEmpty())
+                .map(e -> new FieldEntry(String.valueOf(e.getKey()), String.valueOf(e.getValue())))
+                .toArray(FieldEntry[]::new);
+
+        final DataRow dataRow = new DataRow(new Field(fieldEntries));
+
+        final ModelOrientedWebService.Builder builder = new ModelOrientedWebService.Builder()
+                .setBaseUrl(getBaseUrl())
+                .setServiceType(serviceType)
+                .setMethod(method)
+                .setLoginRequest(new LoginRequest(username, password, language, clientId, roleId, orgId, warehouseId))
+                .setTable(getTable())
+                .setDataRow(dataRow);
+
+        Optional.ofNullable(row.getId())
+                .map(Integer::valueOf)
+                .filter(i -> i > 0)
+                .ifPresent(builder::setRecordId);
+
+        if (isIgnoreCertificateError()) {
+            builder.ignoreSslCertificateError();
+        }
+
         try {
-            final StringBuilder url = new StringBuilder(getBaseUrl() + "/ADInterface/services/rest/model_adservice/" + getMethod());
-
-            final Map<String, String> headers = new HashMap<>();
-            headers.put("Accept", "application/json");
-
-            final String username = getUsername();
-            final String password = getPassword();
-            final String method = getMethod();
-            final String serviceType = getService();
-            final String language = getLanguage();
-            final String clientId = getClientId();
-            final String roleId = getRoleId();
-            final String orgId = getOrgId();
-            final String warehouseId = getWarehouseId();
-            final String stage = getStage();
-
-            final String tablePrimaryKey = getTablePrimaryKey();
-
-            final DataRowField[] dataRowField = row.entrySet().stream()
-                    // do not send ID field
-                    .filter(e -> !tablePrimaryKey.equals(e.getKey()))
-                    .map(e -> new DataRowField(String.valueOf(e.getKey()), String.valueOf(e.getValue())))
-                    .toArray(DataRowField[]::new);
-
-            final JSONObject jsonPayload = generatePayload(method, serviceType, row.getProperty(tablePrimaryKey), dataRowField, username, password, language, clientId, roleId, orgId, warehouseId, stage, null, null);
-
-            final HttpUriRequest request = getHttpRequest(url.toString(), "POST", headers, jsonPayload.toString());
-
-            // kirim request ke server
-            final HttpClient client = getHttpClient(isIgnoreCertificateError());
-            final HttpResponse response = client.execute(request);
-
-            final int statusCode = getResponseStatus(response);
-            if (getStatusGroupCode(statusCode) != 200) {
-                throw new IdempiereClientException("Response code [" + statusCode + "] is not 200 (Success)");
-            } else if (statusCode != 200) {
-                LogUtil.warn(getClassName(), "Response code [" + statusCode + "] is considered as success");
-            }
-
-            if (!isJsonResponse(response)) {
-                throw new IdempiereClientException("Content type is not JSON");
-            }
-
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(response.getEntity().getContent()))) {
-                final JSONObject jsonResponseBody = new JSONObject(br.lines().collect(Collectors.joining()));
-                LogUtil.info(getClassName(), "executeService : jsonResponseBody [" + jsonResponseBody + "]");
-                return jsonResponseBody;
-            }
-        } catch (IOException | IdempiereClientException | JSONException e) {
-            LogUtil.error(getClassName(), e, e.getMessage());
-            return null;
+            final ModelOrientedWebService webService = builder.build();
+            return (StandardResponse) webService.execute();
+        } catch (WebServiceBuilderException | WebServiceResponseException | WebServiceRequestException e) {
+            throw new IdempiereClientException(e);
         }
     }
 
-    protected boolean isError(JSONObject jsonStarndardResponse) {
-        try {
-            return jsonStarndardResponse.has("@IsError") && jsonStarndardResponse.getBoolean("@IsError");
-        } catch (JSONException e) {
-            return false;
+    /**
+     * Copy from {@link org.joget.apps.form.lib.WorkflowFormBinder#storeWorkflowVariables(Element, FormRow, Map)}
+     * <p>
+     * Recursive into elements to retrieve workflow variable values to be stored.
+     *
+     * @param element
+     * @param row         The current row of data
+     * @param variableMap The variable name=value pairs to be stored.
+     * @return
+     */
+    protected Map<String, String> storeWorkflowVariables(Element element, FormRow row, Map<String, String> variableMap) {
+        String variableName = element.getPropertyString(AppUtil.PROPERTY_WORKFLOW_VARIABLE);
+        if (variableName != null && !variableName.trim().isEmpty()) {
+            String id = element.getPropertyString(FormUtil.PROPERTY_ID);
+            String value = (String) row.get(id);
+            if (value != null) {
+                variableMap.put(variableName, value);
+            }
         }
-    }
-
-    protected boolean nonNilValue(JSONObject jsonField) {
-        try {
-            return !jsonField.getJSONObject("val").getBoolean("@nil");
-        } catch (JSONException e) {
-            return true;
+        for (Iterator<Element> i = element.getChildren().iterator(); i.hasNext(); ) {
+            Element child = i.next();
+            storeWorkflowVariables(child, row, variableMap);
         }
+        return variableMap;
     }
 }

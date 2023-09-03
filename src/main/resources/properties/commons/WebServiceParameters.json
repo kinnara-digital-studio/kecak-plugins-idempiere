@@ -1,0 +1,24 @@
+[
+  {
+    "title": "Web Service Parameters",
+    "properties": [
+      {
+        "name": "webServiceParameters",
+        "label": "@@idempiere.webServiceParameters@@",
+        "type": "grid",
+        "columns" : [
+          {
+            "key" : "parameterName",
+            "label" : "@@idempiere.parameterName@@",
+            "required": "true"
+          },
+          {
+            "key" : "parameterValue",
+            "label" : "@@idempiere.parameterValue@@",
+            "required": "true"
+          }
+        ]
+      }
+    ]
+  }
+]

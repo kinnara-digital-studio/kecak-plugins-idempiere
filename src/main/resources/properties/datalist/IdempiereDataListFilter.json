@@ -1,0 +1,27 @@
+[
+  {
+    "title": "iDempiere Filter",
+    "properties": [
+      {
+        "name" : "operation",
+        "label": "Operation",
+        "type": "selectbox",
+        "value" : "eq",
+        "options": [
+          {
+            "value": "eq",
+            "label" : "Equals"
+          },
+          {
+            "value": "like",
+            "label": "Like"
+          },
+          {
+            "value": "foreignKey",
+            "label": "Foreign Key"
+          }
+        ]
+      }
+    ]
+  }
+]

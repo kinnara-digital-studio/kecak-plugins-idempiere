@@ -1,0 +1,63 @@
+[
+  {
+    "title": "Web Service Type",
+    "properties": [
+      {
+        "name": "service",
+        "label": "@@idempiere.service@@",
+        "type": "textfield",
+        "required": "true"
+      },
+      {
+        "name": "method",
+        "label": "@@idempiere.method@@",
+        "type": "selectbox",
+        "required": "true",
+        "options": [
+          {
+            "value": "create_data",
+            "label": "@@idempiere.method.create_data@@"
+          },
+          {
+            "value": "create_update_data",
+            "label": "@@idempiere.method.create_update_data@@"
+          },
+          {
+            "value": "delete_data",
+            "label": "@@idempiere.method.delete_data@@"
+          },
+          {
+            "value": "get_list",
+            "label": "@@idempiere.method.get_list@@"
+          },
+          {
+            "value": "query_data",
+            "label": "@@idempiere.method.query_data@@"
+          },
+          {
+            "value": "read_data",
+            "label": "@@idempiere.method.read_data@@"
+          },
+          {
+            "value": "run_process",
+            "label": "@@idempiere.method.run_process@@"
+          },
+          {
+            "value": "set_docaction",
+            "label": "@@idempiere.method.set_docaction@@"
+          },
+          {
+            "value": "update_data",
+            "label": "@@idempiere.method.update_data@@"
+          }
+        ]
+      },
+      {
+        "name": "table",
+        "label": "@@idempiere.table@@",
+        "type": "textfield",
+        "required": "true"
+      }
+    ]
+  }
+]

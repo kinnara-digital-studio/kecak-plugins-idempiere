@@ -122,7 +122,7 @@ public class IdempiereWebServiceTool extends DefaultApplicationPlugin implements
     public String getPropertyOptions() {
         final String[] resources = new String[]{
                 "/properties/commons/LoginRequest.json",
-                "/properties/commons/WebServiceSecurity.json",
+                "/properties/commons/WebServiceType.json",
                 "/properties/commons/AdvanceOptions.json",
                 "/properties/process/IdempiereWebServiceTool.json"
         };

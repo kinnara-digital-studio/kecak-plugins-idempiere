@@ -1,6 +1,6 @@
 [
   {
-    "title": "Advance",
+    "title": "@@idempiere.others@@",
     "properties" : [
       {
         "name" : "ignoreCertificateError",

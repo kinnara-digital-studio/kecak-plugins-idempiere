@@ -896,23 +896,6 @@ public interface IdempiereMixin extends PropertyEditable, Unclutter {
         throw new IdempiereClientException("Error generating form [" + formDefId + "]");
     }
 
-    default FormRow generateFormRow(DataList dataList, Map<String, Object> input) {
-        String idField = Optional.of(dataList)
-                .map(DataList::getBinder)
-                .map(DataListBinder::getPrimaryKeyColumnName)
-                .orElse("id");
-
-        return Optional.ofNullable(input)
-                .map(Map::entrySet)
-                .map(Collection::stream)
-                .orElseGet(Stream::empty)
-                .collect(() -> {
-                    FormRow row = new FormRow();
-                    row.setId(input.getOrDefault(idField, "").toString());
-                    return row;
-                }, (r, e) -> r.setProperty(e.getKey(), e.getValue().toString()), FormRow::putAll);
-    }
-
     /**
      * @param path
      * @param element
@@ -972,22 +955,6 @@ public interface IdempiereMixin extends PropertyEditable, Unclutter {
         }
     }
 
-    default Optional<String> getJsonResultVariableValue(String variablePath, JsonElement element) {
-        if (variablePath == null || element == null) {
-            return Optional.empty();
-        }
-
-        JsonElement currentElement = element;
-        for (String variable : variablePath.split("\\.")) {
-            if (currentElement == null) {
-                break;
-            }
-            currentElement = getJsonResultVariable(variable, currentElement);
-        }
-
-        return Optional.ofNullable(currentElement).map(JsonElement::getAsString);
-    }
-
     /**
      * @param variable : variable name to search
      * @param element  : element to search for variable
@@ -1015,10 +982,6 @@ public interface IdempiereMixin extends PropertyEditable, Unclutter {
             }
         }
         return null;
-    }
-
-    default String getAuthenticationHeader(String username, String password) {
-        return "Basic " + Base64.getEncoder().encodeToString(String.format("%s:%s", username, password).getBytes());
     }
 
     default JSONObject generatePayload(String method, String serviceType, String recordId, String username, String password, String language, String clientId, String roleId, String orgId, String warehouseId, String stage, @Nullable Integer offset, @Nullable Integer limit) throws JSONException, IdempiereClientException {
@@ -1105,6 +1068,8 @@ public interface IdempiereMixin extends PropertyEditable, Unclutter {
                 return "ModelCRUDRequest";
             case "get_list":
                 return "ModelGetListRequest";
+            case "set_docaction":
+                return "ModelSetDocActionRequest";
             default:
                 throw new IdempiereClientException("Unknown method [" + method + "]");
         }
@@ -1121,51 +1086,11 @@ public interface IdempiereMixin extends PropertyEditable, Unclutter {
                 return "ModelCRUD";
             case "get_list":
                 return "ModelGetList";
+            case "set_docaction":
+                return "ModelSetDocAction";
             default:
                 throw new IdempiereClientException("Unknown method [" + method + "]");
         }
-    }
-
-    default DataRowField[] parseDataRowField(JSONArray jsonDataRow) {
-        return JSONStream.of(jsonDataRow, Try.onBiFunction(JSONArray::getJSONObject))
-                .map(Try.onFunction(json -> json.getJSONArray("field")))
-                .flatMap(jsonArrayRow -> JSONStream.of(jsonArrayRow, Try.onBiFunction(JSONArray::getJSONObject)))
-                .map(Try.onFunction(json -> {
-                    final String column = json.getString("@column");
-                    final String value = json.getString("val");
-
-                    return new DataRowField(column, value);
-                }))
-                .toArray(DataRowField[]::new);
-    }
-
-    default JSONObject toJson(Field field) throws JSONException {
-        final JSONObject json = new JSONObject();
-        json.put("@column", field.getColumn());
-        json.put("val", field.getValue());
-        return json;
-    }
-
-    default JSONArray toJson(Field[] fields) {
-        return Optional.ofNullable(fields)
-                .map(Arrays::stream)
-                .orElseGet(Stream::empty)
-                .map(Try.onFunction(this::toJson))
-                .collect(JSONCollectors.toJSONArray());
-    }
-
-    default JSONObject toJson(DataRow dataRow) throws JSONException {
-        final JSONObject json = new JSONObject();
-        json.put("field", toJson(dataRow.getFields()));
-        return json;
-    }
-
-    default JSONArray toJson(DataRow[] dataRows) {
-        return Optional.ofNullable(dataRows)
-                .map(Arrays::stream)
-                .orElseGet(Stream::empty)
-                .map(Try.onFunction(this::toJson))
-                .collect(JSONCollectors.toJSONArray());
     }
 
     default AppDefinition getIdempiereConfAppDefinition() throws IdempiereClientException {

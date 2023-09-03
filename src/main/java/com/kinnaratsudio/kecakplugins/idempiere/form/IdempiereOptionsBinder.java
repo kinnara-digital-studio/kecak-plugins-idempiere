@@ -3,30 +3,29 @@ package com.kinnaratsudio.kecakplugins.idempiere.form;
 import com.kinnarastudio.commons.Try;
 import com.kinnarastudio.commons.jsonstream.JSONCollectors;
 import com.kinnarastudio.commons.jsonstream.JSONStream;
-import com.kinnaratsudio.kecakplugins.idempiere.commons.IdempiereMixin;
+import com.kinnarastudio.idempiere.exception.WebServiceBuilderException;
+import com.kinnarastudio.idempiere.exception.WebServiceRequestException;
+import com.kinnarastudio.idempiere.exception.WebServiceResponseException;
+import com.kinnarastudio.idempiere.model.DataRow;
+import com.kinnarastudio.idempiere.model.FieldEntry;
+import com.kinnarastudio.idempiere.model.LoginRequest;
+import com.kinnarastudio.idempiere.model.WindowTabData;
+import com.kinnarastudio.idempiere.type.ServiceMethod;
+import com.kinnarastudio.idempiere.webservice.ModelOrientedWebService;
 import com.kinnaratsudio.kecakplugins.idempiere.exception.IdempiereClientException;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpUriRequest;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.form.model.*;
 import org.joget.apps.form.service.FormUtil;
 import org.joget.commons.util.LogUtil;
 import org.joget.plugin.base.PluginManager;
 import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
-public class IdempiereOptionsBinder extends FormBinder implements FormLoadOptionsBinder, FormAjaxOptionsBinder, IdempiereMixin {
+public class IdempiereOptionsBinder extends FormBinder implements FormLoadOptionsBinder, FormAjaxOptionsBinder {
     public final static String LABEL = "iDempiere Options Binder";
 
     @Override
@@ -36,46 +35,30 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
 
     @Override
     public FormRowSet loadAjaxOptions(String[] dependencyValues) {
+
         try {
-            final JSONObject jsonResponse = executeService();
-            final JSONObject jsonDataSet = jsonResponse
-                    .getJSONObject("WindowTabData")
-                    .getJSONObject("DataSet");
-
-            final Object objDataRow = jsonDataSet.get("DataRow");
-
-            final JSONArray jsonDataRow;
-            if (objDataRow instanceof JSONObject) {
-                jsonDataRow = new JSONArray();
-                jsonDataRow.put(objDataRow);
-            } else if (objDataRow instanceof JSONArray) {
-                jsonDataRow = (JSONArray) objDataRow;
-            } else throw new IdempiereClientException("Error parsing DataRow");
-
+            final WindowTabData response = executeService();
             final String valueField = getValueField();
             final String labelField = getLabelField();
-
-            return JSONStream.of(jsonDataRow, Try.onBiFunction(JSONArray::getJSONObject))
-                    .map(Try.onFunction(jsonDataRowItem -> {
+            return Arrays.stream(response.getDataRows())
+                    .map(DataRow::getFieldEntries)
+                    .map(fe -> {
                         final FormRow row = new FormRow();
-                        final JSONArray jsonField = jsonDataRowItem.getJSONArray("field");
 
-                        JSONStream.of(jsonField, Try.onBiFunction(JSONArray::getJSONObject))
-                                .forEach(Try.onConsumer(jsonFieldItem -> {
-                                    final String column = jsonFieldItem.getString("@column");
-                                    final String value = jsonFieldItem.getString("val");
-                                    if (column.equals(valueField)) {
-                                        row.setProperty(FormUtil.PROPERTY_VALUE, value);
-                                    } else if (column.equals(labelField)) {
-                                        row.setProperty(FormUtil.PROPERTY_LABEL, value);
-                                    }
-                                }));
+                        Arrays.stream(fe).forEach(Try.onConsumer(fieldEntry -> {
+                            final String column = fieldEntry.getColumn();
+                            final String value = String.valueOf(fieldEntry.getValue());
+                            if (column.equals(valueField)) {
+                                row.setProperty(FormUtil.PROPERTY_VALUE, value);
+                            } else if (column.equals(labelField)) {
+                                row.setProperty(FormUtil.PROPERTY_LABEL, value);
+                            }
+                        }));
 
                         return row;
-                    }))
+                    })
                     .collect(Collectors.toCollection(FormRowSet::new));
-
-        } catch (JSONException | IdempiereClientException | IOException e) {
+        } catch (IdempiereClientException e) {
             LogUtil.error(getClassName(), e, e.getMessage());
             return null;
         }
@@ -119,9 +102,11 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
     public String getPropertyOptions() {
         final String[] resources = new String[]{
                 "/properties/commons/LoginRequest.json",
-                "/properties/commons/WebServiceSecurity.json",
-                "/properties/commons/AdvanceOptions.json",
-                "/properties/form/IdempiereOptionsBinder.json"
+                "/properties/commons/WebServiceType.json",
+                "/properties/commons/WebServiceParameters.json",
+                "/properties/commons/WebServiceFieldInput.json",
+                "/properties/form/IdempiereOptionsBinder.json",
+                "/properties/commons/AdvanceOptions.json"
         };
 
         return Arrays.stream(resources)
@@ -145,8 +130,25 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
         return getPropertyString("password");
     }
 
-    protected String getMethod() {
-        return getPropertyString("method");
+    protected ServiceMethod getMethod() {
+        switch (getPropertyString("method")) {
+            case "create_data":
+                return ServiceMethod.CREATE_DATA;
+            case "create_update_data":
+                return ServiceMethod.CREATE_OR_UPDATE_DATA;
+            case "delete_data":
+                return ServiceMethod.DELETE_DATA;
+            case "read_data":
+                return ServiceMethod.READ_DATA;
+            case "update_data":
+                return ServiceMethod.UPDATE_DATA;
+            case "get_list":
+                return ServiceMethod.GET_LIST;
+            case "set_docaction":
+                return ServiceMethod.SET_DOCUMENT_ACTION;
+            default:
+                return ServiceMethod.QUERY_DATA;
+        }
     }
 
     protected String getService() {
@@ -157,26 +159,38 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
         return getPropertyString("language");
     }
 
-    protected String getClientId() {
-        return getPropertyString("clientId");
+    protected Integer getClientId() {
+        return Integer.valueOf(getPropertyString("clientId"));
     }
 
-    protected String getRoleId() {
-        return getPropertyString("roleId");
+    protected Integer getRoleId() {
+        return Integer.valueOf(getPropertyString("roleId"));
     }
 
-    protected String getOrgId() {
-        return getPropertyString("orgId");
+    protected Integer getOrgId() {
+        return Integer.valueOf(getPropertyString("orgId"));
     }
 
-    protected String getWarehouseId() {
-        return getPropertyString("warehouseId");
+    protected Integer getWarehouseId() {
+        return Integer.valueOf(getPropertyString("warehouseId"));
     }
 
-    protected String getStage() {
-        return getPropertyString("stage");
+    protected Integer getStage() {
+        return Integer.valueOf(getPropertyString("stage"));
     }
 
+    protected String getTable() {
+        return getPropertyString("table");
+    }
+
+    protected boolean isIgnoreCertificateError() {
+        return "true".equalsIgnoreCase(getPropertyString("ignoreCertificateError"));
+    }
+
+    protected Map<String, String> getWebServiceInput() {
+        return Arrays.stream(getPropertyGrid("webServiceInput"))
+                .collect(Collectors.toMap(m -> m.get("field"), m -> m.get("value")));
+    }
     protected String getValueField() {
         return getPropertyString("valueField");
     }
@@ -185,46 +199,39 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
         return getPropertyString("labelField");
     }
 
-    protected JSONObject executeService() throws IdempiereClientException, JSONException, IOException {
-        final StringBuilder url = new StringBuilder(getBaseUrl() + "/ADInterface/services/rest/model_adservice/" + getMethod());
-
-        final Map<String, String> headers = new HashMap<>();
-        headers.put("Accept", "application/json");
-
+    protected WindowTabData executeService() throws IdempiereClientException {
         final String username = getUsername();
         final String password = getPassword();
-        final String method = getMethod();
+        final ServiceMethod method = getMethod();
         final String serviceType = getService();
         final String language = getLanguage();
-        final String clientId = getClientId();
-        final String roleId = getRoleId();
-        final String orgId = getOrgId();
-        final String warehouseId = getWarehouseId();
-        final String stage = getStage();
+        final int clientId = getClientId();
+        final int roleId = getRoleId();
+        final int orgId = getOrgId();
+        final int warehouseId = getWarehouseId();
+        final int stage = getStage();
 
-        final JSONObject jsonPayload = generatePayload(method, serviceType, null, null, username, password, language, clientId, roleId, orgId, warehouseId, stage, null, null);
+        final FieldEntry[] fieldEntries = getWebServiceInput().entrySet().stream()
+                .map(e -> new FieldEntry(e.getKey(), e.getValue()))
+                .toArray(FieldEntry[]::new);
 
-        final HttpUriRequest request = getHttpRequest(url.toString(), "POST", headers, jsonPayload.toString());
+        final ModelOrientedWebService.Builder builder = new ModelOrientedWebService.Builder()
+                .setBaseUrl(getBaseUrl())
+                .setServiceType(serviceType)
+                .setMethod(method)
+                .setDataRow(new DataRow(fieldEntries))
+                .setLoginRequest(new LoginRequest(username, password, language, clientId, roleId, orgId, warehouseId))
+                .setTable(getTable());
 
-        // kirim request ke server
-        final HttpClient client = getHttpClient(isIgnoreCertificateError());
-        final HttpResponse response = client.execute(request);
-
-        final int statusCode = getResponseStatus(response);
-        if (getStatusGroupCode(statusCode) != 200) {
-            throw new IdempiereClientException("Response code [" + statusCode + "] is not 200 (Success)");
-        } else if (statusCode != 200) {
-            LogUtil.warn(getClassName(), "Response code [" + statusCode + "] is considered as success");
+        if(isIgnoreCertificateError()) {
+            builder.ignoreSslCertificateError();
         }
 
-        if (!isJsonResponse(response)) {
-            throw new IdempiereClientException("Content type is not JSON");
+        try {
+            final ModelOrientedWebService webService = builder.build();
+            return (WindowTabData) webService.execute();
+        } catch (WebServiceBuilderException | WebServiceResponseException | WebServiceRequestException e) {
+            throw new IdempiereClientException(e);
         }
-
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(response.getEntity().getContent()))) {
-            final JSONObject jsonResponseBody = new JSONObject(br.lines().collect(Collectors.joining()));
-            return jsonResponseBody;
-        }
-
     }
 }

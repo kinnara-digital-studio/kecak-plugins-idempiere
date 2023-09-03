@@ -5,8 +5,24 @@
       {
         "name": "primaryKeyColumn",
         "label": "@@idempiere.primaryKeyColumn@@",
-        "type": "textfield",
-        "required": "true"
+        "type": "textfield"
+      },
+      {
+        "name" : "defaultFilter",
+        "label": "@@idempiere.defaultFilter@@",
+        "type": "grid",
+        "columns": [
+          {
+            "key": "field",
+            "label": "Field",
+            "required": "true"
+          },
+          {
+            "key": "value",
+            "label": "Field",
+            "required": "true"
+          }
+        ]
       }
     ]
   }

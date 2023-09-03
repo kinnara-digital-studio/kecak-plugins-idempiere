@@ -3,63 +3,42 @@ package com.kinnaratsudio.kecakplugins.idempiere.datalist;
 import com.kinnarastudio.commons.Try;
 import com.kinnarastudio.commons.jsonstream.JSONCollectors;
 import com.kinnarastudio.commons.jsonstream.JSONStream;
-import com.kinnaratsudio.kecakplugins.idempiere.commons.IdempiereMixin;
+import com.kinnarastudio.idempiere.exception.WebServiceBuilderException;
+import com.kinnarastudio.idempiere.exception.WebServiceRequestException;
+import com.kinnarastudio.idempiere.exception.WebServiceResponseException;
+import com.kinnarastudio.idempiere.model.*;
+import com.kinnarastudio.idempiere.type.ServiceMethod;
+import com.kinnarastudio.idempiere.webservice.ModelOrientedWebService;
 import com.kinnaratsudio.kecakplugins.idempiere.exception.IdempiereClientException;
-import com.kinnaratsudio.kecakplugins.idempiere.model.DataRowField;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpUriRequest;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.datalist.model.*;
 import org.joget.commons.util.LogUtil;
 import org.joget.plugin.base.PluginManager;
 import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 import javax.annotation.Nullable;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class IdempiereDataListBinder extends DataListBinderDefault implements IdempiereMixin {
+public class IdempiereDataListBinder extends DataListBinderDefault {
     public final static String LABEL = "iDempiere DataList Binder";
 
     @Override
     public DataListColumn[] getColumns() {
         try {
-            final JSONObject jsonResponse = executeService(null, getProperties(), null, null, null, null, 1);
+            final WindowTabData response = executeService(null, getProperties(), null, null, null, null, 10);
 
-            final JSONObject jsonDataSet = jsonResponse
-                    .getJSONObject("WindowTabData")
-                    .getJSONObject("DataSet");
-
-            final JSONArray jsonDataRow;
-            final Object objDataRow = jsonDataSet.get("DataRow");
-            if (objDataRow instanceof JSONObject) {
-                jsonDataRow = new JSONArray();
-                jsonDataRow.put(objDataRow);
-            } else if (objDataRow instanceof JSONArray) {
-                jsonDataRow = (JSONArray) objDataRow;
-            } else {
-                throw new IdempiereClientException("Unable to parse columns");
-            }
-
-            return JSONStream.of(jsonDataRow, Try.onBiFunction(JSONArray::getJSONObject))
-                    .findFirst()
-                    .map(Try.onFunction(jsonRow -> {
-                        final JSONArray jsonField = jsonRow.getJSONArray("field");
-
-                        return JSONStream.of(jsonField, Try.onBiFunction(JSONArray::getJSONObject))
-                                .map(Try.onFunction(f -> f.getString("@column")))
-                                .map(s -> new DataListColumn(s, s, false))
-                                .toArray(DataListColumn[]::new);
-                    }))
-                    .orElseGet(() -> new DataListColumn[0]);
-        } catch (JSONException | IdempiereClientException | IOException e) {
+            return Optional.ofNullable(response.getDataRows())
+                    .map(Arrays::stream)
+                    .orElseGet(Stream::empty)
+                    .map(DataRow::getFieldEntries)
+                    .flatMap(Arrays::stream)
+                    .map(FieldEntry::getColumn)
+                    .distinct()
+                    .map(s -> new DataListColumn(s, s, false))
+                    .toArray(DataListColumn[]::new);
+        } catch (IdempiereClientException e) {
             LogUtil.error(getClassName(), e, e.getMessage());
             return new DataListColumn[0];
         }
@@ -67,38 +46,24 @@ public class IdempiereDataListBinder extends DataListBinderDefault implements Id
 
     @Override
     public String getPrimaryKeyColumnName() {
-        return getPropertyString("primaryKeyColumn");
+        if(!getPropertyString("primaryKeyColumn").isEmpty()) {
+            return getPropertyString("primaryKeyColumn");
+        } else if(!getTable().isEmpty()) {
+            return getTable() + "_ID";
+        } else {
+            return "id";
+        }
     }
 
     @Override
     public DataListCollection<Map<String, String>> getData(DataList dataList, Map properties, @Nullable DataListFilterQueryObject[] filterQueryObjects, String sort, @Nullable Boolean desc, @Nullable Integer start, @Nullable Integer rows) {
         try {
-            final JSONObject jsonResponse = executeService(dataList, properties, filterQueryObjects, sort, desc, start, rows);
-            if(jsonResponse == null) return null;
-
-            final JSONObject jsonDataSet = jsonResponse
-                    .getJSONObject("WindowTabData")
-                    .getJSONObject("DataSet");
-
-            final Object objDataRow = jsonDataSet.get("DataRow");
-
-            final JSONArray jsonDataRow;
-            if(objDataRow instanceof JSONObject) {
-                jsonDataRow = new JSONArray();
-                jsonDataRow.put(objDataRow);
-            } else if(objDataRow instanceof JSONArray) {
-                jsonDataRow = (JSONArray) objDataRow;
-            } else return null;
-
-            return JSONStream.of(jsonDataRow, Try.onBiFunction(JSONArray::getJSONObject))
-
-                    .map(Try.onFunction(json -> json.getJSONArray("field")))
-                    .map(jsonArrayRow -> JSONStream.of(jsonArrayRow, Try.onBiFunction(JSONArray::getJSONObject))
-                            .filter(Try.toNegate(this::isNilValue))
-                            .collect(Collectors.toMap(Try.onFunction(json -> json.getString("@column")), Try.onFunction(json -> json.getString("val")))))
+            final WindowTabData response = executeService(dataList, properties, filterQueryObjects, sort, desc, start, rows);
+            return Arrays.stream(response.getDataRows())
+                    .map(dr -> Arrays.stream(dr.getFieldEntries())
+                            .collect(Collectors.toMap(FieldEntry::getColumn, e -> String.valueOf(e.getValue()))))
                     .collect(Collectors.toCollection(DataListCollection::new));
-
-        } catch (JSONException | IdempiereClientException | IOException e) {
+        } catch (IdempiereClientException e) {
             LogUtil.error(getClassName(), e, e.getMessage());
             return null;
         }
@@ -107,12 +72,9 @@ public class IdempiereDataListBinder extends DataListBinderDefault implements Id
     @Override
     public int getDataTotalRowCount(DataList dataList, Map properties, DataListFilterQueryObject[] filterQueryObjects) {
         try {
-            final JSONObject jsonResponse = executeService(dataList, properties, filterQueryObjects, null, null, null, 1);
-            if(jsonResponse == null) {
-                return 0;
-            }
-            return jsonResponse.getJSONObject("WindowTabData").getInt("@TotalRows");
-        } catch (JSONException | IdempiereClientException | IOException e) {
+            final WindowTabData response = executeService(dataList, properties, filterQueryObjects, null, null, null, 1);
+            return response.getTotalRows();
+        } catch (IdempiereClientException e) {
             LogUtil.error(getClassName(), e, e.getMessage());
             return 0;
         }
@@ -150,7 +112,9 @@ public class IdempiereDataListBinder extends DataListBinderDefault implements Id
     public String getPropertyOptions() {
         final String[] resources = new String[]{
                 "/properties/commons/LoginRequest.json",
-                "/properties/commons/WebServiceSecurity.json",
+                "/properties/commons/WebServiceType.json",
+                "/properties/commons/WebServiceParameters.json",
+                "/properties/commons/WebServiceFieldInput.json",
                 "/properties/commons/AdvanceOptions.json",
                 "/properties/datalist/IdempiereDataListBinder.json"
         };
@@ -175,8 +139,26 @@ public class IdempiereDataListBinder extends DataListBinderDefault implements Id
         return getPropertyString("password");
     }
 
-    protected String getMethod() {
-        return getPropertyString("method");
+    protected ServiceMethod getMethod() {
+        switch (getPropertyString("method")) {
+            case "create_data":
+                return ServiceMethod.CREATE_DATA;
+            case "create_update_data":
+                return ServiceMethod.CREATE_OR_UPDATE_DATA;
+            case "delete_data":
+                return ServiceMethod.DELETE_DATA;
+            case "read_data":
+                return ServiceMethod.READ_DATA;
+            case "update_data":
+                return ServiceMethod.UPDATE_DATA;
+            case "get_list":
+                return ServiceMethod.GET_LIST;
+            case "set_docaction":
+                return ServiceMethod.SET_DOCUMENT_ACTION;
+            default:
+                return ServiceMethod.QUERY_DATA;
+        }
+
     }
 
     protected String getService() {
@@ -187,90 +169,107 @@ public class IdempiereDataListBinder extends DataListBinderDefault implements Id
         return getPropertyString("language");
     }
 
-    protected String getClientId() {
-        return getPropertyString("clientId");
+    protected Integer getClientId() {
+        return Integer.valueOf(getPropertyString("clientId"));
     }
 
-    protected String getRoleId() {
-        return getPropertyString("roleId");
+    protected Integer getRoleId() {
+        return Integer.valueOf(getPropertyString("roleId"));
     }
 
-    protected String getOrgId() {
-        return getPropertyString("orgId");
+    protected Integer getOrgId() {
+        return Integer.valueOf(getPropertyString("orgId"));
     }
 
-    protected String getWarehouseId() {
-        return getPropertyString("warehouseId");
+    protected Integer getWarehouseId() {
+        return Integer.valueOf(getPropertyString("warehouseId"));
     }
 
-    protected String getStage() {
-        return getPropertyString("stage");
+    protected Integer getStage() {
+        return Integer.valueOf(getPropertyString("stage"));
     }
 
-    protected JSONObject executeService(DataList dataList, Map properties, @Nullable DataListFilterQueryObject[] filterQueryObjects, String sortIgnored, @Nullable Boolean descIgnored, @Nullable Integer start, @Nullable Integer rows) throws IdempiereClientException, JSONException, IOException {
-        final StringBuilder url = new StringBuilder(getBaseUrl() + "/ADInterface/services/rest/model_adservice/" + getMethod());
+    protected String getTable() {
+        return getPropertyString("table");
+    }
 
-        final Map<String, String> headers = new HashMap<>();
-        headers.put("Accept", "application/json");
+    protected boolean isIgnoreCertificateError() {
+        return "true".equalsIgnoreCase(getPropertyString("ignoreCertificateError"));
+    }
 
+    protected Map<String, String> getWebServiceInput() {
+        return Arrays.stream(getPropertyGrid("webServiceInput"))
+                .collect(Collectors.toMap(m -> m.get("field"), m -> m.get("value")));
+    }
+
+    protected WindowTabData executeService(DataList dataList, Map properties, @Nullable DataListFilterQueryObject[] filterQueryObjects, String sortIgnored, @Nullable Boolean descIgnored, @Nullable Integer start, @Nullable Integer rows) throws IdempiereClientException {
         final String username = getUsername();
         final String password = getPassword();
-        final String method = getMethod();
+        final ServiceMethod method = getMethod();
         final String serviceType = getService();
         final String language = getLanguage();
-        final String clientId = getClientId();
-        final String roleId = getRoleId();
-        final String orgId = getOrgId();
-        final String warehouseId = getWarehouseId();
-        final String stage = getStage();
+        final int clientId = getClientId();
+        final int roleId = getRoleId();
+        final int orgId = getOrgId();
+        final int warehouseId = getWarehouseId();
 
-        final DataRowField[] filters = Optional.ofNullable(dataList)
-                .map(DataList::getFilters)
-                .map(Arrays::stream)
-                .orElseGet(Stream::empty)
-                .map(f -> {
-                    final String name = f.getName();
-                    return Optional.ofNullable(filterQueryObjects)
-                            .map(Arrays::stream)
-                            .orElseGet(Stream::empty)
-                            .filter(q -> q.getQuery().contains("(" + name + ")"))
-                            .map(DataListFilterQueryObject::getValues)
-                            .flatMap(Arrays::stream)
-                            .map(s -> s.split(";"))
-                            .flatMap(Arrays::stream)
-                            .filter(Try.toNegate(String::isEmpty))
-                            .map(s -> new DataRowField(name, s))
-                            .toArray(DataRowField[]::new);
-                })
-                .flatMap(Arrays::stream)
-                .toArray(DataRowField[]::new);
+        try {
+            final Stream<FieldEntry> streamDefaultFilter = getWebServiceInput().entrySet().stream()
+                    .map(e -> new FieldEntry(e.getKey(), e.getValue()));
 
-        final JSONObject jsonPayload = generatePayload(method, serviceType, filters, username, password, language, clientId, roleId, orgId, warehouseId, stage, start, rows);
+            final Stream<FieldEntry> streamQueryObjects = Optional.ofNullable(filterQueryObjects)
+                    .map(Arrays::stream)
+                    .orElseGet(Stream::empty)
+                    .filter(q -> q instanceof IdempiereDataListFilter.IdempiereDataListFilterQueryObject)
+                    .map(q -> {
+                        final IdempiereDataListFilter.FilterQueryType type = ((IdempiereDataListFilter.IdempiereDataListFilterQueryObject) q).getType();
+                        final String name = q.getQuery();
+                        return Optional.of(q)
+                                .map(DataListFilterQueryObject::getValues)
+                                .map(Arrays::stream)
+                                .orElseGet(Stream::empty)
+                                .filter(Objects::nonNull)
+                                .map(s -> s.split(";"))
+                                .flatMap(Arrays::stream)
+                                .filter(Try.toNegate(String::isEmpty))
+                                .map(s -> {
+                                    final String value;
+                                    if(type == IdempiereDataListFilter.FilterQueryType.LIKE) {
+                                        value = "%" + s + "%";
+                                    } else {
+                                        value = s;
+                                    }
+                                    return new FieldEntry(name, value);
+                                })
+                                .toArray(FieldEntry[]::new);
+                    })
+                    .flatMap(Arrays::stream);
 
-        final HttpUriRequest request = getHttpRequest(url.toString(), "POST", headers, jsonPayload.toString());
+            final FieldEntry[] fieldEntries = Stream.concat(streamDefaultFilter, streamQueryObjects)
+                    .toArray(FieldEntry[]::new);
 
-        // kirim request ke server
-        final HttpClient client = getHttpClient(isIgnoreCertificateError());
-        final HttpResponse response = client.execute(request);
+            final Field field = new Field(fieldEntries);
+            final DataRow dataRow = new DataRow(field);
+            final ModelOrientedWebService.Builder builder = new ModelOrientedWebService.Builder()
+                    .setBaseUrl(getBaseUrl())
+                    .setServiceType(serviceType)
+                    .setMethod(method)
+                    .setLoginRequest(new LoginRequest(username, password, language, clientId, roleId, orgId, warehouseId))
+                    .setOffset(start)
+                    .setLimit(rows)
+                    .setTable(getTable())
+                    .setDataRow(dataRow);
 
-        final int statusCode = getResponseStatus(response);
-        if (getStatusGroupCode(statusCode) != 200) {
-            throw new IdempiereClientException("Response code [" + statusCode + "] is not 200 (Success)");
-        } else if (statusCode != 200) {
-            LogUtil.warn(getClassName(), "Response code [" + statusCode + "] is considered as success");
+            if(isIgnoreCertificateError()) {
+                builder.ignoreSslCertificateError();
+            }
+
+            final ModelOrientedWebService webService = builder.build();
+
+            return (WindowTabData) webService.execute();
+
+        } catch (WebServiceRequestException | WebServiceBuilderException | WebServiceResponseException e) {
+            throw new IdempiereClientException(e);
         }
-
-        if (!isJsonResponse(response)) {
-            throw new IdempiereClientException("Content type is not JSON");
-        }
-
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(response.getEntity().getContent()))) {
-            final JSONObject jsonResponseBody = new JSONObject(br.lines().collect(Collectors.joining()));
-            return jsonResponseBody;
-        }
-    }
-
-    protected boolean isNilValue(JSONObject jsonField) throws JSONException {
-        return jsonField.getJSONObject("val").getBoolean("@nil");
     }
 }

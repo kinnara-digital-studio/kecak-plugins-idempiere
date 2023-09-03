@@ -1,0 +1,24 @@
+[
+  {
+    "title": "Web Service Field Input",
+    "properties": [
+      {
+        "name": "webServiceInput",
+        "label": "@@idempiere.webServiceInput@@",
+        "type": "grid",
+        "description": "@@idempiere.dataRow.desc@@",
+        "columns" : [
+          {
+            "key" : "field",
+            "label" : "@@idempiere.formField@@",
+            "required": "true"
+          },
+          {
+            "key": "value",
+            "label" : "@@idempiere.apiField@@"
+          }
+        ]
+      }
+    ]
+  }
+]
