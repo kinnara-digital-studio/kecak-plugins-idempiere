@@ -20,27 +20,16 @@ import org.joget.workflow.util.WorkflowUtil;
 import org.json.JSONArray;
 import org.json.JSONException;
 
+import javax.annotation.Nullable;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class IdempiereFormBinder extends FormBinder implements FormLoadElementBinder, FormStoreElementBinder, FormDataDeletableBinder {
+public class IdempiereFormBinder extends FormBinder implements FormLoadElementBinder, FormStoreElementBinder {
     public final static String LABEL = "iDempiere Form Binder";
 
     @Override
-    public String getFormId() {
-        Form form = FormUtil.findRootForm(this.getElement());
-        return form.getPropertyString("id");
-    }
-
-    @Override
-    public String getTableName() {
-        Form form = FormUtil.findRootForm(this.getElement());
-        return form.getPropertyString("tableName");
-    }
-
-    @Override
-    public FormRowSet load(Element element, String primaryKey, FormData formData) {
+    public FormRowSet load(Element form, String primaryKey, FormData formData) {
         try {
             final Integer intPrimaryKey = Optional.ofNullable(primaryKey)
                     .map(Try.onFunction(Integer::valueOf, (NumberFormatException e) -> 0))
@@ -56,7 +45,7 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
                     .map(DataRow::getFieldEntries)
                     .map(Arrays::stream)
                     .orElseGet(Stream::empty)
-                    .collect(Collectors.toMap(FieldEntry::getColumn, FieldEntry::getValue, (ignore, accept) -> accept, FormRow::new));
+                    .collect(Collectors.toMap(FieldEntry::getColumn, fe -> String.valueOf(fe.getValue()), (ignore, accept) -> accept, FormRow::new));
 
             Optional.of(getTablePrimaryKey())
                     .map(row::getProperty)
@@ -77,11 +66,17 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
     @Override
     public FormRowSet store(Element element, FormRowSet rowSet, FormData formData) {
         try {
+            final boolean isDebug = isDebug();
+
             final FormRow row = Optional.ofNullable(rowSet)
                     .map(Collection::stream)
                     .orElseGet(Stream::empty)
                     .findFirst()
                     .orElseThrow(() -> new IdempiereClientException("No record to store"));
+
+            if (isDebug) {
+                LogUtil.info(getClass().getName(), "store : row [" + row.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining(",")) + "]");
+            }
 
             final StandardResponse response = executeService(row);
 
@@ -90,6 +85,11 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
             }
 
             final String recordId = String.valueOf(response.getRecordId());
+
+            if (isDebug) {
+                LogUtil.info(getClass().getName(), "Table [" + getTable() + "] RecordID [" + recordId + "]");
+            }
+
             row.setId(recordId);
 
             final String activityId = formData.getActivityId();
@@ -222,12 +222,22 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
         return Integer.valueOf(getPropertyString("orgId"));
     }
 
+    @Nullable
     protected Integer getWarehouseId() {
-        return Integer.valueOf(getPropertyString("warehouseId"));
+        try {
+            return Integer.valueOf(getPropertyString("warehouseId"));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
+    @Nullable
     protected Integer getStage() {
-        return Integer.valueOf(getPropertyString("stage"));
+        try {
+            return Integer.valueOf(getPropertyString("stage"));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     protected String getTable() {
@@ -287,7 +297,6 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
         final Integer roleId = getRoleId();
         final Integer orgId = getOrgId();
         final Integer warehouseId = getWarehouseId();
-        final Integer stage = getStage();
 
         final String tablePrimaryKey = getTablePrimaryKey();
 
@@ -352,5 +361,9 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
             storeWorkflowVariables(child, row, variableMap);
         }
         return variableMap;
+    }
+
+    protected boolean isDebug() {
+        return "true".equalsIgnoreCase(getPropertyString("debug"));
     }
 }

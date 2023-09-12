@@ -181,12 +181,22 @@ public class IdempiereDataListBinder extends DataListBinderDefault {
         return Integer.valueOf(getPropertyString("orgId"));
     }
 
+    @Nullable
     protected Integer getWarehouseId() {
-        return Integer.valueOf(getPropertyString("warehouseId"));
+        try {
+            return Integer.valueOf(getPropertyString("warehouseId"));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
+    @Nullable
     protected Integer getStage() {
-        return Integer.valueOf(getPropertyString("stage"));
+        try {
+            return Integer.valueOf(getPropertyString("stage"));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     protected String getTable() {
@@ -211,7 +221,7 @@ public class IdempiereDataListBinder extends DataListBinderDefault {
         final int clientId = getClientId();
         final int roleId = getRoleId();
         final int orgId = getOrgId();
-        final int warehouseId = getWarehouseId();
+        final Integer warehouseId = getWarehouseId();
 
         try {
             final Stream<FieldEntry> streamDefaultFilter = getWebServiceInput().entrySet().stream()

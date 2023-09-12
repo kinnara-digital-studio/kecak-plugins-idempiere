@@ -29,6 +29,7 @@ public class CompositeIdempiereFormBinder extends FormBinder implements FormStor
     @Override
     public FormRowSet store(Element element, FormRowSet rowSet, FormData formData) {
         try {
+            final boolean isDebug = isDebug();
             final FormRow row = Optional.ofNullable(rowSet)
                     .map(Collection::stream)
                     .orElseGet(Stream::empty)
@@ -65,6 +66,10 @@ public class CompositeIdempiereFormBinder extends FormBinder implements FormStor
                         })
                         .toArray(FieldEntry[]::new);
                 final Operation operation = new Operation(method, new Model(serviceType, tableName, new DataRow(fieldEntries)));
+
+                if (isDebug) {
+                    LogUtil.info(getClass().getName(), "Operation method [" + method + "] table [" + tableName + "] entries [" + Arrays.stream(fieldEntries).map(e -> e.getColumn() + "=" + e.getValue()).collect(Collectors.joining(",")) + "]");
+                }
                 builder.addOperation(operation);
             });
 
@@ -75,22 +80,32 @@ public class CompositeIdempiereFormBinder extends FormBinder implements FormStor
             final CompositeInterfaceWebService webService = builder.build();
             final CompositeResponses response = (CompositeResponses) webService.execute();
 
-
-            if(response.isError()) {
+            if (response.isError()) {
+                if (isDebug) {
+                    LogUtil.info(getClass().getName(), "store : request payload [" + webService.getRequestPayload() + "]");
+                    LogUtil.info(getClass().getName(), "store : response payload [" + response.getResponsePayload() + "]");
+                }
                 final String errorMessage = Arrays.stream(response.getErrorMessages())
                         .findFirst()
                         .orElse("Unknown error");
                 throw new WebServiceResponseException(errorMessage);
             }
 
-            Optional.of(response)
+            Integer[] recordIds = Optional.of(response)
                     .map(CompositeResponses::getResponses)
                     .map(Arrays::stream)
                     .orElseGet(Stream::empty)
                     .filter(r -> !r.isError())
+                    .peek(r -> {
+                        if (isDebug) {
+                            LogUtil.info(getClass().getName(), "RecordID [" + r.getRecordId() + "] generated");
+                        }
+                    })
                     .map(StandardResponse::getRecordId)
-                    .filter(i -> i > 0)
-                    .findFirst()
+                    .filter(n -> n > 0)
+                    .toArray(Integer[]::new);
+
+            Arrays.stream(recordIds).findFirst()
                     .map(String::valueOf)
                     .ifPresent(row::setId);
 
@@ -208,11 +223,19 @@ public class CompositeIdempiereFormBinder extends FormBinder implements FormStor
     }
 
     protected Integer getWarehouseId() {
-        return Integer.valueOf(getPropertyString("warehouseId"));
+        try {
+            return Integer.valueOf(getPropertyString("warehouseId"));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     protected Integer getStage() {
-        return Integer.valueOf(getPropertyString("stage"));
+        try {
+            return Integer.valueOf(getPropertyString("stage"));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
 
@@ -258,5 +281,9 @@ public class CompositeIdempiereFormBinder extends FormBinder implements FormStor
         return Arrays.stream(webServiceInput)
                 .map(o -> (Map<String, String>) o)
                 .collect(Collectors.toMap(m -> m.getOrDefault("formField", ""), m -> m.getOrDefault("apiField", "")));
+    }
+
+    protected boolean isDebug() {
+        return "true".equalsIgnoreCase(getPropertyString("debug"));
     }
 }

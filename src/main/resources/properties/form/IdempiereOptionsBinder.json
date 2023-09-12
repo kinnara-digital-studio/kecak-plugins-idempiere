@@ -13,6 +13,11 @@
         "label": "@@idempiere.labelField@@",
         "type": "textfield",
         "required": "true"
+      },
+      {
+        "name": "groupingField",
+        "label": "@@idempiere.groupingField@@",
+        "type": "textfield"
       }
     ]
   }

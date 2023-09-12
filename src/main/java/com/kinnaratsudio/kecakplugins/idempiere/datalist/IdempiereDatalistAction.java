@@ -159,10 +159,12 @@ public class IdempiereDatalistAction extends DataListActionDefault implements Id
             final String clientId = getClientId();
             final String roleId = getRoleId();
             final String orgId = getOrgId();
-            final String warehouseId = getWarehouseId();
-            final String stage = getStage();
+            final Integer warehouseId = getWarehouseId();
+            final Integer stage = getStage();
 
-            final JSONObject jsonPayload = generatePayload(method, serviceType, primaryKey, username, password, language, clientId, roleId, orgId, warehouseId, stage, null, null);
+            
+
+            final JSONObject jsonPayload = generatePayload(method, serviceType, primaryKey, username, password, language, clientId, roleId, orgId, String.valueOf(warehouseId), String.valueOf(stage), null, null);
 
             final HttpUriRequest request = getHttpRequest(url.toString(), "POST", headers, jsonPayload.toString());
 
@@ -227,12 +229,20 @@ public class IdempiereDatalistAction extends DataListActionDefault implements Id
         return getPropertyString("orgId");
     }
 
-    protected String getWarehouseId() {
-        return getPropertyString("warehouseId");
+    protected Integer getWarehouseId() {
+        try {
+            return Integer.parseInt(getPropertyString("warehouseId"));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
-    protected String getStage() {
-        return getPropertyString("stage");
+    protected Integer getStage() {
+        try {
+            return Integer.parseInt(getPropertyString("stage"));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     protected String getTable() {

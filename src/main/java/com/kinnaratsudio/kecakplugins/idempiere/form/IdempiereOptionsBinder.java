@@ -20,10 +20,13 @@ import org.joget.commons.util.LogUtil;
 import org.joget.plugin.base.PluginManager;
 import org.json.JSONArray;
 
+import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class IdempiereOptionsBinder extends FormBinder implements FormLoadOptionsBinder, FormAjaxOptionsBinder {
     public final static String LABEL = "iDempiere Options Binder";
@@ -37,9 +40,11 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
     public FormRowSet loadAjaxOptions(String[] dependencyValues) {
 
         try {
-            final WindowTabData response = executeService();
             final String valueField = getValueField();
             final String labelField = getLabelField();
+            final String groupingField = getGroupingField();
+
+            final WindowTabData response = executeService(groupingField, dependencyValues);
             return Arrays.stream(response.getDataRows())
                     .map(DataRow::getFieldEntries)
                     .map(fe -> {
@@ -52,6 +57,8 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
                                 row.setProperty(FormUtil.PROPERTY_VALUE, value);
                             } else if (column.equals(labelField)) {
                                 row.setProperty(FormUtil.PROPERTY_LABEL, value);
+                            } else if(column.equals(groupingField)) {
+                                row.setProperty(FormUtil.PROPERTY_GROUPING, value);
                             }
                         }));
 
@@ -171,12 +178,22 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
         return Integer.valueOf(getPropertyString("orgId"));
     }
 
+    @Nullable
     protected Integer getWarehouseId() {
-        return Integer.valueOf(getPropertyString("warehouseId"));
+        try {
+            return Integer.valueOf(getPropertyString("warehouseId"));
+        }catch (NumberFormatException e) {
+            return null;
+        }
     }
 
+    @Nullable
     protected Integer getStage() {
-        return Integer.valueOf(getPropertyString("stage"));
+        try {
+            return Integer.valueOf(getPropertyString("stage"));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     protected String getTable() {
@@ -199,7 +216,11 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
         return getPropertyString("labelField");
     }
 
-    protected WindowTabData executeService() throws IdempiereClientException {
+    protected String getGroupingField() {
+        return getPropertyString("groupingField");
+    }
+
+    protected WindowTabData executeService(String filterField, String[] filterValues) throws IdempiereClientException {
         final String username = getUsername();
         final String password = getPassword();
         final ServiceMethod method = getMethod();
@@ -208,11 +229,20 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
         final int clientId = getClientId();
         final int roleId = getRoleId();
         final int orgId = getOrgId();
-        final int warehouseId = getWarehouseId();
-        final int stage = getStage();
+        final Integer warehouseId = getWarehouseId();
 
-        final FieldEntry[] fieldEntries = getWebServiceInput().entrySet().stream()
-                .map(e -> new FieldEntry(e.getKey(), e.getValue()))
+        final Stream<FieldEntry> streamWebServiceInput = getWebServiceInput().entrySet().stream()
+                .map(e -> new FieldEntry(e.getKey(), e.getValue()));
+
+        final Stream<FieldEntry> streamGrouping = Optional.ofNullable(filterValues)
+                .map(Arrays::stream)
+                .orElseGet(Stream::empty)
+                .map(s -> s.split(";"))
+                .flatMap(Arrays::stream)
+                .filter(s -> !s.isEmpty())
+                .map(s -> new FieldEntry(filterField, s));
+
+        final FieldEntry[] fieldEntries = Stream.concat(streamWebServiceInput, streamGrouping)
                 .toArray(FieldEntry[]::new);
 
         final ModelOrientedWebService.Builder builder = new ModelOrientedWebService.Builder()

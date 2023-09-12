@@ -11,6 +11,7 @@ import com.kinnaratsudio.kecakplugins.idempiere.form.IdempiereLoginUserOptionsBi
 import com.kinnaratsudio.kecakplugins.idempiere.form.IdempiereFormBinder;
 import com.kinnaratsudio.kecakplugins.idempiere.form.IdempiereOptionsBinder;
 import com.kinnaratsudio.kecakplugins.idempiere.hashvariable.IdempiereConfigHashVariable;
+import com.kinnaratsudio.kecakplugins.idempiere.hashvariable.IdempiereWebServiceQueryDataHashVariable;
 import com.kinnaratsudio.kecakplugins.idempiere.process.IdempiereWebServiceTool;
 import com.kinnaratsudio.kecakplugins.idempiere.webservice.IdempiereGetPropertyJson;
 import org.osgi.framework.BundleActivator;
@@ -33,6 +34,7 @@ public class Activator implements BundleActivator {
         registrationList.add(context.registerService(IdempiereDataListFilter.class.getName(), new IdempiereDataListFilter(), null));
         registrationList.add(context.registerService(IdempiereWebServiceTool.class.getName(), new IdempiereWebServiceTool(), null));
         registrationList.add(context.registerService(IdempiereConfigHashVariable.class.getName(), new IdempiereConfigHashVariable(), null));
+        registrationList.add(context.registerService(IdempiereWebServiceQueryDataHashVariable.class.getName(), new IdempiereWebServiceQueryDataHashVariable(), null));
         registrationList.add(context.registerService(IdempiereGetPropertyJson.class.getName(), new IdempiereGetPropertyJson(), null));
         registrationList.add(context.registerService(CompositeIdempiereFormBinder.class.getName(), new CompositeIdempiereFormBinder(), null));
     }
