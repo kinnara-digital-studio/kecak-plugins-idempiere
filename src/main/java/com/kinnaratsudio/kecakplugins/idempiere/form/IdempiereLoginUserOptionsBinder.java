@@ -8,8 +8,11 @@ import org.joget.apps.form.dao.FormDataDao;
 import org.joget.apps.form.model.*;
 import org.joget.apps.form.service.FormUtil;
 import org.joget.commons.util.LogUtil;
+import org.joget.workflow.util.WorkflowUtil;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -22,11 +25,12 @@ public class IdempiereLoginUserOptionsBinder extends FormBinder implements FormL
     }
 
     @Override
-    public FormRowSet loadAjaxOptions(String[] dependencyValues) {
+    public FormRowSet loadAjaxOptions(String[] tenantIds) {
         try {
             final FormDataDao formDataDao = (FormDataDao) AppUtil.getApplicationContext().getBean("formDataDao");
             final Form form = getLoginForm();
-            return Optional.ofNullable(formDataDao.find(form, null, null, null, null, null, null))
+            final String where = tenantIds == null || tenantIds.length == 0 ? null : Arrays.stream(tenantIds).map(s -> "?").collect(Collectors.joining(",", "where e.customProperties.idm_clientid in (", ")"));
+            return Optional.ofNullable(formDataDao.find(form, where, tenantIds, null, null, null, null))
                     .map(Collection::stream)
                     .orElseGet(Stream::empty)
                     .map(r -> {
@@ -48,7 +52,13 @@ public class IdempiereLoginUserOptionsBinder extends FormBinder implements FormL
     @Override
     public FormRowSet load(Element element, String primaryKey, FormData formData) {
         setFormData(formData);
-        return loadAjaxOptions(null);
+        try {
+            final int tenantId = getTenantId();
+            return loadAjaxOptions(new String[] {String.valueOf(tenantId)});
+        } catch (IdempiereClientException e) {
+            LogUtil.error(getClass().getName(), e, e.getMessage());
+            return null;
+        }
     }
 
     @Override
@@ -79,5 +89,20 @@ public class IdempiereLoginUserOptionsBinder extends FormBinder implements FormL
     @Override
     public String getPropertyOptions() {
         return null;
+    }
+
+    protected Integer getTenantId() throws IdempiereClientException {
+        final FormDataDao formDataDao = (FormDataDao) AppUtil.getApplicationContext().getBean("formDataDao");
+        final Form form = getLoginForm();
+
+        final String username = WorkflowUtil.getCurrentUsername();
+        return Optional.ofNullable(formDataDao.find(form, "where e.customProperties.username = ?", new Object[]{ username }, null, null, null, 1))
+                .map(Collection::stream)
+                .orElseGet(Stream::empty)
+                .map(r -> r.getProperty("idm_clientid"))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .map(Integer::parseInt)
+                .orElseThrow(() -> new IdempiereClientException("User [" + username + "] cannot be found in Login Configuration"));
     }
 }
