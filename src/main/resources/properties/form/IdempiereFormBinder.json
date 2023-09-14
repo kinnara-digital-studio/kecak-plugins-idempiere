@@ -1,0 +1,11 @@
+[
+  {
+    "title": "Record Data Deletion",
+    "properties": [
+      {
+        "name": "deletionService",
+        "type": "textfield"
+      }
+    ]
+  }
+]

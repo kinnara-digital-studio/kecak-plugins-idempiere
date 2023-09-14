@@ -25,7 +25,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class IdempiereFormBinder extends FormBinder implements FormLoadElementBinder, FormStoreElementBinder {
+public class IdempiereFormBinder extends FormBinder implements FormLoadElementBinder, FormStoreElementBinder, FormDeleteBinder {
     public final static String LABEL = "iDempiere Form Binder";
 
     @Override
@@ -34,7 +34,8 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
             final Integer intPrimaryKey = Optional.ofNullable(primaryKey)
                     .map(Try.onFunction(Integer::valueOf, (NumberFormatException e) -> 0))
                     .orElse(0);
-            final WindowTabData response = executeService(intPrimaryKey);
+            final String serviceType = getService();
+            final WindowTabData response = executeService(intPrimaryKey, serviceType);
 
             if (!response.isSucceed()) {
                 throw new IdempiereClientException("Error loading data [" + primaryKey + "]");
@@ -158,6 +159,7 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
                 "/properties/commons/WebServiceType.json",
                 "/properties/commons/WebServiceParameters.json",
                 "/properties/commons/AdvanceOptions.json",
+                "properties/form/IdempiereFormBinder.json"
         };
 
         return Arrays.stream(resources)
@@ -206,6 +208,10 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
         return getPropertyString("service");
     }
 
+    protected String getDeletionService() {
+        return getPropertyString("deletionService");
+    }
+
     protected String getLanguage() {
         return getPropertyString("language");
     }
@@ -252,11 +258,10 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
         return getTable() + "_ID";
     }
 
-    protected WindowTabData executeService(Integer primaryKey) throws IdempiereClientException {
+    protected WindowTabData executeService(Integer primaryKey, String serviceType) throws IdempiereClientException {
         final String username = getUsername();
         final String password = getPassword();
         final ServiceMethod method = getMethod();
-        final String serviceType = getService();
         final String language = getLanguage();
         final Integer clientId = getClientId();
         final Integer roleId = getRoleId();
@@ -365,5 +370,30 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
 
     protected boolean isDebug() {
         return "true".equalsIgnoreCase(getPropertyString("debug"));
+    }
+
+    @Override
+    public void delete(Element element, FormRowSet rowSet, FormData formData, boolean deleteGrid, boolean deleteSubform, boolean abortProcess, boolean deleteFiles, boolean hardDelete) {
+        final boolean isDebug = isDebug();
+        final String serviceType = getDeletionService();
+        if(serviceType.isEmpty()) {
+            return;
+        }
+
+        Optional.ofNullable(rowSet)
+                .map(Collection::stream)
+                .orElseGet(Stream::empty)
+                .map(FormRow::getId)
+                .map(Try.onFunction(Integer::valueOf, (NumberFormatException e) -> 0))
+                .forEach(Try.onConsumer(primaryKey -> {
+                    if(isDebug) {
+                        LogUtil.info(getClass().getName(), "Deleting Record ID [" + primaryKey + "] service [" + serviceType + "]");
+                    }
+
+                    final WindowTabData response = executeService(primaryKey, serviceType);
+                    if (!response.isSucceed()) {
+                        throw new IdempiereClientException("Error deleting data [" + primaryKey + "]");
+                    }
+                }));
     }
 }
