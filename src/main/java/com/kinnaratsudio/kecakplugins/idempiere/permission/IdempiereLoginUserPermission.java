@@ -6,7 +6,6 @@ import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.form.dao.FormDataDao;
 import org.joget.apps.form.model.Form;
 import org.joget.apps.form.model.FormRowSet;
-import org.joget.apps.userview.model.Permission;
 import org.joget.apps.userview.model.UserviewPermission;
 import org.joget.commons.util.LogUtil;
 import org.joget.plugin.base.PluginManager;
@@ -17,7 +16,7 @@ import java.util.ResourceBundle;
 import java.util.stream.Stream;
 
 /**
- *
+ * Permission for users listed in table app_fd_idempiere_login
  */
 public class IdempiereLoginUserPermission extends UserviewPermission implements IdempiereMixin {
     public static String LABEL = "iDempiere Login User Permission";
