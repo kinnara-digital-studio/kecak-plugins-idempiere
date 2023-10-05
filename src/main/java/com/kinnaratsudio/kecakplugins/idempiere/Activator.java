@@ -6,11 +6,9 @@ import java.util.Collection;
 import com.kinnaratsudio.kecakplugins.idempiere.datalist.IdempiereDataListBinder;
 import com.kinnaratsudio.kecakplugins.idempiere.datalist.IdempiereDataListFilter;
 import com.kinnaratsudio.kecakplugins.idempiere.datalist.IdempiereDatalistAction;
-import com.kinnaratsudio.kecakplugins.idempiere.form.CompositeIdempiereFormBinder;
-import com.kinnaratsudio.kecakplugins.idempiere.form.IdempiereLoginUserOptionsBinder;
-import com.kinnaratsudio.kecakplugins.idempiere.form.IdempiereFormBinder;
-import com.kinnaratsudio.kecakplugins.idempiere.form.IdempiereOptionsBinder;
+import com.kinnaratsudio.kecakplugins.idempiere.form.*;
 import com.kinnaratsudio.kecakplugins.idempiere.hashvariable.IdempiereConfigHashVariable;
+import com.kinnaratsudio.kecakplugins.idempiere.hashvariable.IdempiereFooHashVariable;
 import com.kinnaratsudio.kecakplugins.idempiere.hashvariable.IdempiereWebServiceQueryDataHashVariable;
 import com.kinnaratsudio.kecakplugins.idempiere.permission.IdempiereLoginUserPermission;
 import com.kinnaratsudio.kecakplugins.idempiere.process.IdempiereWebServiceTool;
@@ -27,7 +25,8 @@ public class Activator implements BundleActivator {
         registrationList = new ArrayList<ServiceRegistration>();
 
         //Register plugin here
-        registrationList.add(context.registerService(IdempiereFormBinder.class.getName(), new IdempiereFormBinder(), null));
+        registrationList.add(context.registerService(IdempiereLoadFormBinder.class.getName(), new IdempiereLoadFormBinder(), null));
+        registrationList.add(context.registerService(IdempiereStoreFormBinder.class.getName(), new IdempiereStoreFormBinder(), null));
         registrationList.add(context.registerService(IdempiereOptionsBinder.class.getName(), new IdempiereOptionsBinder(), null));
         registrationList.add(context.registerService(IdempiereLoginUserOptionsBinder.class.getName(), new IdempiereLoginUserOptionsBinder(), null));
         registrationList.add(context.registerService(IdempiereDataListBinder.class.getName(), new IdempiereDataListBinder(), null));
@@ -36,6 +35,7 @@ public class Activator implements BundleActivator {
         registrationList.add(context.registerService(IdempiereWebServiceTool.class.getName(), new IdempiereWebServiceTool(), null));
         registrationList.add(context.registerService(IdempiereConfigHashVariable.class.getName(), new IdempiereConfigHashVariable(), null));
         registrationList.add(context.registerService(IdempiereWebServiceQueryDataHashVariable.class.getName(), new IdempiereWebServiceQueryDataHashVariable(), null));
+        registrationList.add(context.registerService(IdempiereFooHashVariable.class.getName(), new IdempiereFooHashVariable(), null));
         registrationList.add(context.registerService(IdempiereGetPropertyJson.class.getName(), new IdempiereGetPropertyJson(), null));
         registrationList.add(context.registerService(CompositeIdempiereFormBinder.class.getName(), new CompositeIdempiereFormBinder(), null));
         registrationList.add(context.registerService(IdempiereLoginUserPermission.class.getName(), new IdempiereLoginUserPermission(), null));

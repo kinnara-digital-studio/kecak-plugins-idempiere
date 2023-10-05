@@ -6,16 +6,16 @@
         "name": "webServiceInput",
         "label": "@@idempiere.webServiceInput@@",
         "type": "grid",
-        "description": "@@idempiere.dataRow.desc@@",
+        "description": "@@idempiere.formLoadBinder.webServiceInput.desc@@",
         "columns" : [
           {
-            "key" : "field",
-            "label" : "@@idempiere.formField@@",
+            "key" : "inputField",
+            "label" : "@@idempiere.inputField@@",
             "required": "true"
           },
           {
             "key": "value",
-            "label" : "@@idempiere.apiField@@"
+            "label" : "@@idempiere.value@@"
           }
         ]
       }

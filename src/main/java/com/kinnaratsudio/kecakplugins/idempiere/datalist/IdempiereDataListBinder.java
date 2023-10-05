@@ -27,9 +27,13 @@ public class IdempiereDataListBinder extends DataListBinderDefault {
     @Override
     public DataListColumn[] getColumns() {
         try {
-            final WindowTabData response = executeService(null, getProperties(), null, null, null, null, 10);
+            final String serviceType = getService();
+            final ServiceMethod method = getMethod();
 
-            return Optional.ofNullable(response.getDataRows())
+            final WindowTabData response = executeService(serviceType, method, null, null, null, null, 1);
+
+            return Optional.of(response)
+                    .map(WindowTabData::getDataRows)
                     .map(Arrays::stream)
                     .orElseGet(Stream::empty)
                     .map(DataRow::getFieldEntries)
@@ -58,7 +62,10 @@ public class IdempiereDataListBinder extends DataListBinderDefault {
     @Override
     public DataListCollection<Map<String, String>> getData(DataList dataList, Map properties, @Nullable DataListFilterQueryObject[] filterQueryObjects, String sort, @Nullable Boolean desc, @Nullable Integer start, @Nullable Integer rows) {
         try {
-            final WindowTabData response = executeService(dataList, properties, filterQueryObjects, sort, desc, start, rows);
+
+            final String serviceType = getService();
+            final ServiceMethod method = getMethod();
+            final WindowTabData response = executeService(serviceType, method, filterQueryObjects, sort, desc, start, rows);
             return Arrays.stream(response.getDataRows())
                     .map(dr -> Arrays.stream(dr.getFieldEntries())
                             .collect(Collectors.toMap(FieldEntry::getColumn, e -> String.valueOf(e.getValue()))))
@@ -72,7 +79,9 @@ public class IdempiereDataListBinder extends DataListBinderDefault {
     @Override
     public int getDataTotalRowCount(DataList dataList, Map properties, DataListFilterQueryObject[] filterQueryObjects) {
         try {
-            final WindowTabData response = executeService(dataList, properties, filterQueryObjects, null, null, null, 1);
+            final String serviceType = getService();
+            final ServiceMethod method = getMethod();
+            final WindowTabData response = executeService(serviceType, method, filterQueryObjects, null, null, null, 1);
             return response.getTotalRows();
         } catch (IdempiereClientException e) {
             LogUtil.error(getClassName(), e, e.getMessage());
@@ -209,14 +218,12 @@ public class IdempiereDataListBinder extends DataListBinderDefault {
 
     protected Map<String, String> getWebServiceInput() {
         return Arrays.stream(getPropertyGrid("webServiceInput"))
-                .collect(Collectors.toMap(m -> m.get("field"), m -> m.get("value")));
+                .collect(Collectors.toMap(m -> m.get("inputField"), m -> m.get("value")));
     }
 
-    protected WindowTabData executeService(DataList dataList, Map properties, @Nullable DataListFilterQueryObject[] filterQueryObjects, String sortIgnored, @Nullable Boolean descIgnored, @Nullable Integer start, @Nullable Integer rows) throws IdempiereClientException {
+    protected WindowTabData executeService(String serviceType, ServiceMethod method, @Nullable DataListFilterQueryObject[] filterQueryObjects, String sortIgnored, @Nullable Boolean descIgnored, @Nullable Integer start, @Nullable Integer rows) throws IdempiereClientException {
         final String username = getUsername();
         final String password = getPassword();
-        final ServiceMethod method = getMethod();
-        final String serviceType = getService();
         final String language = getLanguage();
         final int clientId = getClientId();
         final int roleId = getRoleId();
@@ -276,6 +283,7 @@ public class IdempiereDataListBinder extends DataListBinderDefault {
 
             final ModelOrientedWebService webService = builder.build();
 
+            LogUtil.info(getClass().getName(), "executeService : request ["+ webService.getRequestPayload() +"]");
             return (WindowTabData) webService.execute();
 
         } catch (WebServiceRequestException | WebServiceBuilderException | WebServiceResponseException e) {

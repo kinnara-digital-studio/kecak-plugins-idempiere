@@ -8,6 +8,7 @@ import org.joget.apps.form.model.Form;
 import org.joget.apps.form.model.FormRowSet;
 import org.joget.apps.userview.model.UserviewPermission;
 import org.joget.commons.util.LogUtil;
+import org.joget.directory.model.User;
 import org.joget.plugin.base.PluginManager;
 
 import java.util.Collection;
@@ -25,7 +26,9 @@ public class IdempiereLoginUserPermission extends UserviewPermission implements 
         final FormDataDao formDataDao = (FormDataDao) AppUtil.getApplicationContext().getBean("formDataDao");
         try {
             final Form form = getLoginForm();
-            final String username = getCurrentUser().getUsername();
+            final String username = Optional.ofNullable(getCurrentUser())
+                    .map(User::getUsername)
+                    .orElse("");
             final FormRowSet rowSet = formDataDao.find(form, "where e.customProperties.username = ?", new Object[] { username }, null, null, null, null);
             return Optional.ofNullable(rowSet)
                     .map(Collection::stream)

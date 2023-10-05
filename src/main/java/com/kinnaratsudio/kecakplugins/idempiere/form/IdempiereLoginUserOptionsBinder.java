@@ -2,18 +2,15 @@ package com.kinnaratsudio.kecakplugins.idempiere.form;
 
 import com.kinnaratsudio.kecakplugins.idempiere.commons.IdempiereMixin;
 import com.kinnaratsudio.kecakplugins.idempiere.exception.IdempiereClientException;
-import org.joget.apps.app.model.AppDefinition;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.form.dao.FormDataDao;
 import org.joget.apps.form.model.*;
 import org.joget.apps.form.service.FormUtil;
 import org.joget.commons.util.LogUtil;
+import org.joget.plugin.base.PluginManager;
 import org.joget.workflow.util.WorkflowUtil;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -44,7 +41,7 @@ public class IdempiereLoginUserOptionsBinder extends FormBinder implements FormL
                     })
                     .collect(Collectors.toCollection(FormRowSet::new));
         } catch (IdempiereClientException e) {
-            LogUtil.error(getClassName(), e, e.getMessage());
+            LogUtil.error(getClass().getName(), e, e.getMessage());
             return null;
         }
     }
@@ -68,7 +65,10 @@ public class IdempiereLoginUserOptionsBinder extends FormBinder implements FormL
 
     @Override
     public String getVersion() {
-        return getClass().getPackage().getImplementationVersion();
+        PluginManager pluginManager = (PluginManager) AppUtil.getApplicationContext().getBean("pluginManager");
+        ResourceBundle resourceBundle = pluginManager.getPluginMessageBundle(getClassName(), "/messages/BuildNumber");
+        String buildNumber = resourceBundle.getString("buildNumber");
+        return buildNumber;
     }
 
     @Override
@@ -83,7 +83,7 @@ public class IdempiereLoginUserOptionsBinder extends FormBinder implements FormL
 
     @Override
     public String getClassName() {
-        return null;
+        return getClass().getName();
     }
 
     @Override

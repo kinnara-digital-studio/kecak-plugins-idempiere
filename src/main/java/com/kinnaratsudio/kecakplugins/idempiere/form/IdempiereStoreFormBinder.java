@@ -25,44 +25,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class IdempiereFormBinder extends FormBinder implements FormLoadElementBinder, FormStoreElementBinder, FormDeleteBinder {
-    public final static String LABEL = "iDempiere Form Binder";
-
-    @Override
-    public FormRowSet load(Element form, String primaryKey, FormData formData) {
-        try {
-            final Integer intPrimaryKey = Optional.ofNullable(primaryKey)
-                    .map(Try.onFunction(Integer::valueOf, (NumberFormatException e) -> 0))
-                    .orElse(0);
-            final String serviceType = getService();
-            final WindowTabData response = executeService(intPrimaryKey, serviceType);
-
-            if (!response.isSucceed()) {
-                throw new IdempiereClientException("Error loading data [" + primaryKey + "]");
-            }
-
-            final FormRow row = Arrays.stream(response.getDataRows())
-                    .findFirst()
-                    .map(DataRow::getFieldEntries)
-                    .map(Arrays::stream)
-                    .orElseGet(Stream::empty)
-                    .collect(Collectors.toMap(FieldEntry::getColumn, fe -> String.valueOf(fe.getValue()), (ignore, accept) -> accept, FormRow::new));
-
-            Optional.of(getTablePrimaryKey())
-                    .map(row::getProperty)
-                    .ifPresent(row::setId);
-
-            formData.clearFormErrors();
-
-            final FormRowSet rowSet = new FormRowSet();
-            rowSet.add(row);
-            return rowSet;
-
-        } catch (JSONException | IdempiereClientException e) {
-            LogUtil.error(getClassName(), e, e.getMessage());
-            return null;
-        }
-    }
+public class IdempiereStoreFormBinder extends FormBinder implements FormStoreElementBinder, FormDeleteBinder {
+    public final static String LABEL = "iDempiere Form Store Binder";
 
     @Override
     public FormRowSet store(Element element, FormRowSet rowSet, FormData formData) {
@@ -158,8 +122,8 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
                 "/properties/commons/LoginRequest.json",
                 "/properties/commons/WebServiceType.json",
                 "/properties/commons/WebServiceParameters.json",
-                "/properties/commons/AdvanceOptions.json",
-                "properties/form/IdempiereFormBinder.json"
+                "properties/form/IdempiereFormStoreBinder.json",
+                "/properties/commons/AdvanceOptions.json"
         };
 
         return Arrays.stream(resources)
@@ -258,7 +222,7 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
         return getTable() + "_ID";
     }
 
-    protected WindowTabData executeService(Integer primaryKey, String serviceType) throws IdempiereClientException {
+    protected WindowTabData executeService(Integer primaryKey, String serviceType, DataRow dataRow) throws IdempiereClientException {
         final String username = getUsername();
         final String password = getPassword();
         final ServiceMethod method = getMethod();
@@ -273,6 +237,8 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
                 .setBaseUrl(getBaseUrl())
                 .setServiceType(serviceType)
                 .setMethod(method)
+                .setDataRow(dataRow)
+                .setLimit(1)    // supposed to be only 1 data
                 .setLoginRequest(new LoginRequest(username, password, language, clientId, roleId, orgId, warehouseId))
                 .setTable(getTable());
 
@@ -286,7 +252,17 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
 
         try {
             final ModelOrientedWebService webService = builder.build();
-            return (WindowTabData) webService.execute();
+            if (isDebug()) {
+                LogUtil.info(getClass().getName(), "executeService : request [" + webService.getRequestPayload() + "]");
+            }
+            WindowTabData response = (WindowTabData) webService.execute();
+
+
+            if (isDebug()) {
+                LogUtil.info(getClass().getName(), "executeService : response [" + response.getResponsePayload() + "]");
+            }
+
+            return response;
         } catch (WebServiceBuilderException | WebServiceResponseException | WebServiceRequestException e) {
             throw new IdempiereClientException(e);
         }
@@ -336,6 +312,9 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
 
         try {
             final ModelOrientedWebService webService = builder.build();
+            if (isDebug()) {
+                LogUtil.info(getClass().getName(), "executeService : request [" + webService.getRequestPayload() + "]");
+            }
             return (StandardResponse) webService.execute();
         } catch (WebServiceBuilderException | WebServiceResponseException | WebServiceRequestException e) {
             throw new IdempiereClientException(e);
@@ -376,7 +355,7 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
     public void delete(Element element, FormRowSet rowSet, FormData formData, boolean deleteGrid, boolean deleteSubform, boolean abortProcess, boolean deleteFiles, boolean hardDelete) {
         final boolean isDebug = isDebug();
         final String serviceType = getDeletionService();
-        if(serviceType.isEmpty()) {
+        if (serviceType.isEmpty()) {
             return;
         }
 
@@ -386,11 +365,11 @@ public class IdempiereFormBinder extends FormBinder implements FormLoadElementBi
                 .map(FormRow::getId)
                 .map(Try.onFunction(Integer::valueOf, (NumberFormatException e) -> 0))
                 .forEach(Try.onConsumer(primaryKey -> {
-                    if(isDebug) {
+                    if (isDebug) {
                         LogUtil.info(getClass().getName(), "Deleting Record ID [" + primaryKey + "] service [" + serviceType + "]");
                     }
 
-                    final WindowTabData response = executeService(primaryKey, serviceType);
+                    final WindowTabData response = executeService(primaryKey, serviceType, new DataRow(new FieldEntry[0]));
                     if (!response.isSucceed()) {
                         throw new IdempiereClientException("Error deleting data [" + primaryKey + "]");
                     }

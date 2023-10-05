@@ -78,6 +78,9 @@ public class CompositeIdempiereFormBinder extends FormBinder implements FormStor
             }
 
             final CompositeInterfaceWebService webService = builder.build();
+            if (isDebug) {
+                LogUtil.info(getClass().getName(), "store : webService request [" + webService.getRequestPayload() + "]");
+            }
             final CompositeResponses response = (CompositeResponses) webService.execute();
 
             if (response.isError()) {

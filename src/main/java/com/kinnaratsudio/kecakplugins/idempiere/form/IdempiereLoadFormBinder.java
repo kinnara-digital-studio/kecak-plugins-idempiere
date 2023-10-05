@@ -6,10 +6,7 @@ import com.kinnarastudio.commons.jsonstream.JSONStream;
 import com.kinnarastudio.idempiere.exception.WebServiceBuilderException;
 import com.kinnarastudio.idempiere.exception.WebServiceRequestException;
 import com.kinnarastudio.idempiere.exception.WebServiceResponseException;
-import com.kinnarastudio.idempiere.model.DataRow;
-import com.kinnarastudio.idempiere.model.FieldEntry;
-import com.kinnarastudio.idempiere.model.LoginRequest;
-import com.kinnarastudio.idempiere.model.WindowTabData;
+import com.kinnarastudio.idempiere.model.*;
 import com.kinnarastudio.idempiere.type.ServiceMethod;
 import com.kinnarastudio.idempiere.webservice.ModelOrientedWebService;
 import com.kinnaratsudio.kecakplugins.idempiere.exception.IdempiereClientException;
@@ -18,63 +15,89 @@ import org.joget.apps.form.model.*;
 import org.joget.apps.form.service.FormUtil;
 import org.joget.commons.util.LogUtil;
 import org.joget.plugin.base.PluginManager;
+import org.joget.workflow.util.WorkflowUtil;
 import org.json.JSONArray;
+import org.json.JSONException;
 
 import javax.annotation.Nullable;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Optional;
-import java.util.ResourceBundle;
+import javax.servlet.http.HttpServletRequest;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class IdempiereOptionsBinder extends FormBinder implements FormLoadOptionsBinder, FormAjaxOptionsBinder {
-    public final static String LABEL = "iDempiere Options Binder";
-
+public class IdempiereLoadFormBinder extends FormBinder implements FormLoadElementBinder {
+    public final static String LABEL = "iDempiere Form Load Binder";
     @Override
-    public boolean useAjax() {
-        return true;
-    }
+    public FormRowSet load(Element form, String primaryKey, FormData formData) {
+        if (isDebug()) {
+            LogUtil.info(getClass().getName(), "load : primaryKey [" + primaryKey + "]");
 
-    @Override
-    public FormRowSet loadAjaxOptions(String[] dependencyValues) {
+
+            final HttpServletRequest request = WorkflowUtil.getHttpServletRequest();
+            Optional.ofNullable((Map<String, String[]>) request.getParameterMap())
+                    .map(Map::entrySet)
+                    .map(Collection::stream)
+                    .orElseGet(Stream::empty)
+                    .forEach(e -> {
+                        LogUtil.info(getClass().getName(), "load : parameterMap [" + e.getKey() + "] [" + String.join(",",e.getValue())+"]");
+                    });
+
+            Optional.ofNullable((Map<String, String[]>) formData.getRequestParams())
+                    .map(Map::entrySet)
+                    .map(Collection::stream)
+                    .orElseGet(Stream::empty)
+                    .forEach(e -> {
+                        LogUtil.info(getClass().getName(), "load : formData.requestParams [" + e.getKey() + "] [" + String.join(",",e.getValue())+"]");
+                    });
+        }
 
         try {
-            final String valueField = getValueField();
-            final String labelField = getLabelField();
-            final String groupingField = getGroupingField();
+            final Integer intPrimaryKey = Optional.ofNullable(primaryKey)
+                    .map(Try.onFunction(Integer::valueOf, (NumberFormatException e) -> 0))
+                    .orElse(0);
 
-            final WindowTabData response = executeService(groupingField, dependencyValues);
-            return Arrays.stream(response.getDataRows())
-                    .map(DataRow::getFieldEntries)
-                    .map(fe -> {
-                        final FormRow row = new FormRow();
-
-                        Arrays.stream(fe).forEach(Try.onConsumer(fieldEntry -> {
-                            final String column = fieldEntry.getColumn();
-                            final String value = String.valueOf(fieldEntry.getValue());
-                            if (column.equals(valueField)) {
-                                row.setProperty(FormUtil.PROPERTY_VALUE, value);
-                            } else if (column.equals(labelField)) {
-                                row.setProperty(FormUtil.PROPERTY_LABEL, value);
-                            } else if(column.equals(groupingField)) {
-                                row.setProperty(FormUtil.PROPERTY_GROUPING, value);
-                            }
-                        }));
-
-                        return row;
+            final FieldEntry[] fieldEntries = getWebServiceInput().entrySet().stream()
+                    .map(e -> {
+                        final String column = e.getKey();
+                        final String value = e.getValue();
+                        if(value.startsWith("@")) {
+                            return new FieldEntry(column, formData.getRequestParameter(value.replaceAll("^@", "")));
+                        } else {
+                            return new FieldEntry(column, value);
+                        }
                     })
-                    .collect(Collectors.toCollection(FormRowSet::new));
-        } catch (IdempiereClientException e) {
+                    .peek(e -> LogUtil.info(getClass().getName(), "load : fieldEntry column ["+e.getColumn()+"] value ["+e.getValue()+ "]"))
+                    .toArray(FieldEntry[]::new);
+
+            final DataRow dataRow = new DataRow(fieldEntries);
+            final String serviceType = getService();
+            final WindowTabData response = executeService(intPrimaryKey, serviceType, dataRow);
+
+            if (!response.isSucceed()) {
+                throw new IdempiereClientException("Error loading data [" + primaryKey + "]");
+            }
+
+            final FormRow row = Arrays.stream(response.getDataRows())
+                    .findFirst()
+                    .map(DataRow::getFieldEntries)
+                    .map(Arrays::stream)
+                    .orElseGet(Stream::empty)
+                    .collect(Collectors.toMap(FieldEntry::getColumn, fe -> String.valueOf(fe.getValue()), (ignore, accept) -> accept, FormRow::new));
+
+            Optional.of(getTablePrimaryKey())
+                    .map(row::getProperty)
+                    .ifPresent(row::setId);
+
+            formData.clearFormErrors();
+
+            final FormRowSet rowSet = new FormRowSet();
+            rowSet.add(row);
+            return rowSet;
+
+        } catch (JSONException | IdempiereClientException e) {
             LogUtil.error(getClassName(), e, e.getMessage());
             return null;
         }
-    }
-
-    @Override
-    public FormRowSet load(Element element, String primaryKeys, FormData formData) {
-        setFormData(formData);
-        return loadAjaxOptions(null);
     }
 
     @Override
@@ -112,7 +135,6 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
                 "/properties/commons/WebServiceType.json",
                 "/properties/commons/WebServiceParameters.json",
                 "/properties/commons/WebServiceFieldInput.json",
-                "/properties/form/IdempiereOptionsBinder.json",
                 "/properties/commons/AdvanceOptions.json"
         };
 
@@ -122,8 +144,8 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
                 .flatMap(a -> JSONStream.of(a, Try.onBiFunction(JSONArray::getJSONObject)))
                 .collect(JSONCollectors.toJSONArray())
                 .toString();
-
     }
+
 
     protected String getBaseUrl() {
         return getPropertyString("baseUrl").replaceAll("/+$", "");
@@ -162,6 +184,10 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
         return getPropertyString("service");
     }
 
+    protected String getDeletionService() {
+        return getPropertyString("deletionService");
+    }
+
     protected String getLanguage() {
         return getPropertyString("language");
     }
@@ -182,7 +208,7 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
     protected Integer getWarehouseId() {
         try {
             return Integer.valueOf(getPropertyString("warehouseId"));
-        }catch (NumberFormatException e) {
+        } catch (NumberFormatException e) {
             return null;
         }
     }
@@ -208,60 +234,61 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
         return Arrays.stream(getPropertyGrid("webServiceInput"))
                 .collect(Collectors.toMap(m -> m.get("inputField"), m -> m.get("value")));
     }
-    protected String getValueField() {
-        return getPropertyString("valueField");
+
+    protected String getTablePrimaryKey() {
+        return getTable() + "_ID";
     }
 
-    protected String getLabelField() {
-        return getPropertyString("labelField");
-    }
-
-    protected String getGroupingField() {
-        return getPropertyString("groupingField");
-    }
-
-    protected WindowTabData executeService(String filterField, String[] filterValues) throws IdempiereClientException {
+    protected WindowTabData executeService(Integer primaryKey, String serviceType, DataRow dataRow) throws IdempiereClientException {
         final String username = getUsername();
         final String password = getPassword();
         final ServiceMethod method = getMethod();
-        final String serviceType = getService();
         final String language = getLanguage();
-        final int clientId = getClientId();
-        final int roleId = getRoleId();
-        final int orgId = getOrgId();
+        final Integer clientId = getClientId();
+        final Integer roleId = getRoleId();
+        final Integer orgId = getOrgId();
         final Integer warehouseId = getWarehouseId();
-
-        final Stream<FieldEntry> streamWebServiceInput = getWebServiceInput().entrySet().stream()
-                .map(e -> new FieldEntry(e.getKey(), e.getValue()));
-
-        final Stream<FieldEntry> streamGrouping = Optional.ofNullable(filterValues)
-                .map(Arrays::stream)
-                .orElseGet(Stream::empty)
-                .map(s -> s.split(";"))
-                .flatMap(Arrays::stream)
-                .filter(s -> !s.isEmpty())
-                .map(s -> new FieldEntry(filterField, s));
-
-        final FieldEntry[] fieldEntries = Stream.concat(streamWebServiceInput, streamGrouping)
-                .toArray(FieldEntry[]::new);
+        final Integer stage = getStage();
 
         final ModelOrientedWebService.Builder builder = new ModelOrientedWebService.Builder()
                 .setBaseUrl(getBaseUrl())
                 .setServiceType(serviceType)
                 .setMethod(method)
-                .setDataRow(new DataRow(fieldEntries))
+                .setLimit(1)    // supposed to be only 1 data
                 .setLoginRequest(new LoginRequest(username, password, language, clientId, roleId, orgId, warehouseId))
                 .setTable(getTable());
 
-        if(isIgnoreCertificateError()) {
+        if(dataRow.getFieldEntries().length > 0) {
+            builder.setDataRow(dataRow);
+        }
+
+        if (primaryKey != null && primaryKey > 0) {
+            builder.setRecordId(primaryKey);
+        }
+
+        if (isIgnoreCertificateError()) {
             builder.ignoreSslCertificateError();
         }
 
         try {
             final ModelOrientedWebService webService = builder.build();
-            return (WindowTabData) webService.execute();
+            if (isDebug()) {
+                LogUtil.info(getClass().getName(), "executeService : request [" + webService.getRequestPayload() + "]");
+            }
+            WindowTabData response = (WindowTabData) webService.execute();
+
+
+            if (isDebug()) {
+                LogUtil.info(getClass().getName(), "executeService : response [" + response.getResponsePayload() + "]");
+            }
+
+            return response;
         } catch (WebServiceBuilderException | WebServiceResponseException | WebServiceRequestException e) {
             throw new IdempiereClientException(e);
         }
+    }
+
+    protected boolean isDebug() {
+        return "true".equalsIgnoreCase(getPropertyString("debug"));
     }
 }
