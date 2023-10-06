@@ -82,13 +82,14 @@
         "description": "@@idempiere.dataRow.desc@@",
         "columns" : [
           {
-            "key" : "formField",
-            "label" : "@@idempiere.formField@@",
+            "key": "apiField",
+            "label" : "@@idempiere.apiField@@",
             "required": "true"
           },
           {
-            "key": "apiField",
-            "label" : "@@idempiere.apiField@@"
+            "key" : "formField",
+            "label" : "@@idempiere.formField@@",
+            "required": "true"
           }
         ]
       }

@@ -58,10 +58,10 @@ public class CompositeIdempiereFormBinder extends FormBinder implements FormStor
                 final FieldEntry[] fieldEntries = getWebServiceInput(i).entrySet().stream()
                         .filter(e -> !e.getKey().isEmpty())
                         .map(e -> {
-                            final String formField = e.getKey();
+                            final String wsInputField = e.getKey();
+                            final String formField = e.getValue();
                             final String value = row.getProperty(formField);
-                            final String apiField = e.getValue();
-                            final String key = apiField.isEmpty() ? formField : apiField;
+                            final String key = formField.isEmpty() ? formField : wsInputField;
                             return new FieldEntry(key, value);
                         })
                         .toArray(FieldEntry[]::new);
@@ -277,13 +277,19 @@ public class CompositeIdempiereFormBinder extends FormBinder implements FormStor
         return Integer.parseInt(properties.get("className").toString());
     }
 
+    /**
+     * Map<Web Service Parameter, Form Field>
+     *
+     * @param page
+     * @return
+     */
     protected Map<String, String> getWebServiceInput(int page) {
         Map<String, Object> map = (Map<String, Object>) getProperty("numberOfServices");
         Map<String, Object> prop = (Map<String, Object>) map.get("properties");
         Object[] webServiceInput = (Object[]) prop.get("webServiceInput_" + page);
         return Arrays.stream(webServiceInput)
                 .map(o -> (Map<String, String>) o)
-                .collect(Collectors.toMap(m -> m.getOrDefault("formField", ""), m -> m.getOrDefault("apiField", "")));
+                .collect(Collectors.toMap(m -> m.getOrDefault("apiField", ""), m -> m.getOrDefault("formField", "")));
     }
 
     protected boolean isDebug() {
