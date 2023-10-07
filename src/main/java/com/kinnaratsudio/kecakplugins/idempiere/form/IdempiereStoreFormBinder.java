@@ -10,8 +10,8 @@ import com.kinnarastudio.idempiere.model.*;
 import com.kinnarastudio.idempiere.type.ServiceMethod;
 import com.kinnarastudio.idempiere.webservice.ModelOrientedWebService;
 import com.kinnaratsudio.kecakplugins.idempiere.exception.IdempiereClientException;
-import org.eclipse.jgit.internal.ketch.LogIndex;
 import org.joget.apps.app.service.AppUtil;
+import org.joget.apps.form.lib.CheckBox;
 import org.joget.apps.form.model.*;
 import org.joget.apps.form.service.FormUtil;
 import org.joget.commons.util.LogUtil;
@@ -48,7 +48,7 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
                 LogUtil.info(getClass().getName(), "store : row [" + row.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining(",")) + "]");
             }
 
-            final StandardResponse response = executeService(row);
+            final StandardResponse response = executeService(element, row, formData);
 
             if (response.isError()) {
                 throw new IdempiereClientException(response.getErrorMessage());
@@ -273,7 +273,7 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
         }
     }
 
-    protected StandardResponse executeService(FormRow row) throws IdempiereClientException {
+    protected StandardResponse executeService(Element rootElement, FormRow row, FormData formData) throws IdempiereClientException {
         final String username = getUsername();
         final String password = getPassword();
         final ServiceMethod method = getMethod();
@@ -292,8 +292,26 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
                     final String propName = String.valueOf(e.getKey());
                     return !propName.isEmpty() && !"id".equalsIgnoreCase(propName) && !tablePrimaryKey.equals(propName);
                 })
-                .filter(e -> !String.valueOf(e.getValue()).isEmpty())
-                .map(e -> new FieldEntry(String.valueOf(e.getKey()), String.valueOf(e.getValue())))
+                .filter(e -> e.getValue() != null)
+                .map(e -> {
+                    final String elementId = String.valueOf(e.getKey());
+                    final Element element = FormUtil.findElement(elementId, rootElement, formData);
+                    final Collection<FormRow> options = FormUtil.getElementPropertyOptionsMap(element, formData);
+                    final String value;
+                    if(element instanceof CheckBox && options != null && options.size() == 1) { // basically a switch
+                        value = Optional.of(options)
+                                .map(Collection::stream)
+                                .orElseGet(Stream::empty)
+                                .findFirst()
+                                .map(r -> r.getProperty(FormUtil.PROPERTY_VALUE))
+                                .filter(e.getValue()::equals)
+                                .map(s -> "Y")
+                                .orElse("N");
+                    } else {
+                        value = String.valueOf(e.getValue());
+                    }
+                    return new FieldEntry(String.valueOf(e.getKey()), value);
+                })
                 .toArray(FieldEntry[]::new);
 
         final DataRow dataRow = new DataRow(new Field(fieldEntries));
@@ -307,7 +325,6 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
                 .setTable(getTable())
                 .setDataRow(dataRow);
 
-        LogUtil.info(getClass().getName(), "row.getId() ["+row.getId()+"]");
         Optional.ofNullable(row.getId())
                 .map(Integer::valueOf)
                 .filter(i -> i > 0)
@@ -329,7 +346,7 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
     }
 
     /**
-     * Copy from {@link org.joget.apps.form.lib.WorkflowFormBinder#storeWorkflowVariables(Element, FormRow, Map)}
+     * Copy from {@link org.joget.apps.form.lib.WorkflowFormBinder# storeWorkflowVariables(Element, FormRow, Map)}
      * <p>
      * Recursive into elements to retrieve workflow variable values to be stored.
      *

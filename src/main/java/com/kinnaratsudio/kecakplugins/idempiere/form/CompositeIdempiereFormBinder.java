@@ -85,9 +85,9 @@ public class CompositeIdempiereFormBinder extends FormBinder implements FormStor
 
             if (response.isError()) {
                 if (isDebug) {
-                    LogUtil.info(getClass().getName(), "store : request payload [" + webService.getRequestPayload() + "]");
-                    LogUtil.info(getClass().getName(), "store : response payload [" + response.getResponsePayload() + "]");
+                    LogUtil.info(getClass().getName(), "store : webService response [" + response.getResponsePayload() + "]");
                 }
+
                 final String errorMessage = Arrays.stream(response.getErrorMessages())
                         .findFirst()
                         .orElse("Unknown error");
