@@ -24,7 +24,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public class CompositeIdempiereFormBinder extends FormBinder implements FormStoreElementBinder {
-    public final static String LABEL = "Composite iDempiere Form Binder";
+    public final static String LABEL = "Composite iDempiere Form Store Binder";
 
     @Override
     public FormRowSet store(Element element, FormRowSet rowSet, FormData formData) {

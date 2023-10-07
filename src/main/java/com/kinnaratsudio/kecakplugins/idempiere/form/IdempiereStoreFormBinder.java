@@ -10,6 +10,7 @@ import com.kinnarastudio.idempiere.model.*;
 import com.kinnarastudio.idempiere.type.ServiceMethod;
 import com.kinnarastudio.idempiere.webservice.ModelOrientedWebService;
 import com.kinnaratsudio.kecakplugins.idempiere.exception.IdempiereClientException;
+import org.eclipse.jgit.internal.ketch.LogIndex;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.form.model.*;
 import org.joget.apps.form.service.FormUtil;
@@ -38,6 +39,10 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
                     .orElseGet(Stream::empty)
                     .findFirst()
                     .orElseThrow(() -> new IdempiereClientException("No record to store"));
+
+            if(row.getId() == null && formData.getPrimaryKeyValue() != null) {
+                row.setId(formData.getPrimaryKeyValue());
+            }
 
             if (isDebug) {
                 LogUtil.info(getClass().getName(), "store : row [" + row.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining(",")) + "]");
@@ -293,6 +298,7 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
 
         final DataRow dataRow = new DataRow(new Field(fieldEntries));
 
+
         final ModelOrientedWebService.Builder builder = new ModelOrientedWebService.Builder()
                 .setBaseUrl(getBaseUrl())
                 .setServiceType(serviceType)
@@ -301,6 +307,7 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
                 .setTable(getTable())
                 .setDataRow(dataRow);
 
+        LogUtil.info(getClass().getName(), "row.getId() ["+row.getId()+"]");
         Optional.ofNullable(row.getId())
                 .map(Integer::valueOf)
                 .filter(i -> i > 0)

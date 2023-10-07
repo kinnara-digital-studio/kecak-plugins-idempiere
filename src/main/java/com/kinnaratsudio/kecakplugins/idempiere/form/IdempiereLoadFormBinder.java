@@ -27,6 +27,7 @@ import java.util.stream.Stream;
 
 public class IdempiereLoadFormBinder extends FormBinder implements FormLoadElementBinder {
     public final static String LABEL = "iDempiere Form Load Binder";
+
     @Override
     public FormRowSet load(Element form, String primaryKey, FormData formData) {
         if (isDebug()) {
@@ -38,17 +39,13 @@ public class IdempiereLoadFormBinder extends FormBinder implements FormLoadEleme
                     .map(Map::entrySet)
                     .map(Collection::stream)
                     .orElseGet(Stream::empty)
-                    .forEach(e -> {
-                        LogUtil.info(getClass().getName(), "load : parameterMap [" + e.getKey() + "] [" + String.join(",",e.getValue())+"]");
-                    });
+                    .forEach(e -> LogUtil.info(getClass().getName(), "load : parameterMap [" + e.getKey() + "] [" + String.join(",", e.getValue()) + "]"));
 
-            Optional.ofNullable((Map<String, String[]>) formData.getRequestParams())
+            Optional.ofNullable(formData.getRequestParams())
                     .map(Map::entrySet)
                     .map(Collection::stream)
                     .orElseGet(Stream::empty)
-                    .forEach(e -> {
-                        LogUtil.info(getClass().getName(), "load : formData.requestParams [" + e.getKey() + "] [" + String.join(",",e.getValue())+"]");
-                    });
+                    .forEach(e -> LogUtil.info(getClass().getName(), "load : formData.requestParams [" + e.getKey() + "] [" + String.join(",", e.getValue()) + "]"));
         }
 
         try {
@@ -60,13 +57,12 @@ public class IdempiereLoadFormBinder extends FormBinder implements FormLoadEleme
                     .map(e -> {
                         final String column = e.getKey();
                         final String value = e.getValue();
-                        if(value.startsWith("@")) {
+                        if (value.startsWith("@")) {
                             return new FieldEntry(column, formData.getRequestParameter(value.replaceAll("^@", "")));
                         } else {
                             return new FieldEntry(column, value);
                         }
                     })
-                    .peek(e -> LogUtil.info(getClass().getName(), "load : fieldEntry column ["+e.getColumn()+"] value ["+e.getValue()+ "]"))
                     .toArray(FieldEntry[]::new);
 
             final DataRow dataRow = new DataRow(fieldEntries);
@@ -84,9 +80,7 @@ public class IdempiereLoadFormBinder extends FormBinder implements FormLoadEleme
                     .orElseGet(Stream::empty)
                     .collect(Collectors.toMap(FieldEntry::getColumn, fe -> String.valueOf(fe.getValue()), (ignore, accept) -> accept, FormRow::new));
 
-            Optional.of(getTablePrimaryKey())
-                    .map(row::getProperty)
-                    .ifPresent(row::setId);
+            row.setId(String.valueOf(intPrimaryKey));
 
             formData.clearFormErrors();
 
@@ -258,7 +252,7 @@ public class IdempiereLoadFormBinder extends FormBinder implements FormLoadEleme
                 .setLoginRequest(new LoginRequest(username, password, language, clientId, roleId, orgId, warehouseId))
                 .setTable(getTable());
 
-        if(dataRow.getFieldEntries().length > 0) {
+        if (dataRow.getFieldEntries().length > 0) {
             builder.setDataRow(dataRow);
         }
 
