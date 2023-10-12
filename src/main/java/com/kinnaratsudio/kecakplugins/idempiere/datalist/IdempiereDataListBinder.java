@@ -283,7 +283,7 @@ public class IdempiereDataListBinder extends DataListBinderDefault {
 
             final ModelOrientedWebService webService = builder.build();
 
-            LogUtil.info(getClass().getName(), "executeService : request ["+ webService.getRequestPayload() +"]");
+            LogUtil.info(getClass().getName(), "executeService : request ["+ webService.getRequest().getRequestPayload() +"]");
             return (WindowTabData) webService.execute();
 
         } catch (WebServiceRequestException | WebServiceBuilderException | WebServiceResponseException e) {

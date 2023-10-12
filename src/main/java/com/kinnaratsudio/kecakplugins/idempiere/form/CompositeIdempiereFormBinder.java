@@ -9,6 +9,7 @@ import com.kinnarastudio.idempiere.exception.WebServiceResponseException;
 import com.kinnarastudio.idempiere.model.*;
 import com.kinnarastudio.idempiere.type.ServiceMethod;
 import com.kinnarastudio.idempiere.webservice.CompositeInterfaceWebService;
+import com.kinnarastudio.idempiere.webservice.ModelOrientedWebService;
 import com.kinnaratsudio.kecakplugins.idempiere.exception.IdempiereClientException;
 import com.kinnaratsudio.kecakplugins.idempiere.webservice.IdempiereGetPropertyJson;
 import org.joget.apps.app.service.AppUtil;
@@ -23,7 +24,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-public class CompositeIdempiereFormBinder extends FormBinder implements FormStoreElementBinder {
+public class CompositeIdempiereFormBinder extends FormBinder implements FormStoreElementBinder, IdempiereFormDeleteBinder {
     public final static String LABEL = "Composite iDempiere Form Store Binder";
 
     @Override
@@ -65,7 +66,24 @@ public class CompositeIdempiereFormBinder extends FormBinder implements FormStor
                             return new FieldEntry(key, value);
                         })
                         .toArray(FieldEntry[]::new);
-                final Operation operation = new Operation(method, new Model(serviceType, tableName, new DataRow(fieldEntries)));
+
+                final Map<String, String> webServiceParameters = getWebServiceParameters(i);
+
+                final int recordId = Optional.ofNullable(webServiceParameters.get("RecordID"))
+                        .map(Try.onFunction(Integer::parseInt))
+                        .orElse(0);
+
+                final String recordIdVariable = webServiceParameters.get("recordIdVariable");
+
+                final Integer offset = Optional.ofNullable(webServiceParameters.get("Offset"))
+                        .map(Try.onFunction(Integer::parseInt))
+                        .orElse(null);
+
+                final Integer limit = Optional.ofNullable(webServiceParameters.get("Limit"))
+                        .map(Try.onFunction(Integer::parseInt))
+                        .orElse(null);
+
+                final Operation operation = new Operation(method, new ModelCrud(serviceType, tableName, recordId, recordIdVariable, offset, limit, new DataRow(fieldEntries)));
 
                 if (isDebug) {
                     LogUtil.info(getClass().getName(), "Operation method [" + method + "] table [" + tableName + "] entries [" + Arrays.stream(fieldEntries).map(e -> e.getColumn() + "=" + e.getValue()).collect(Collectors.joining(",")) + "]");
@@ -161,6 +179,7 @@ public class CompositeIdempiereFormBinder extends FormBinder implements FormStor
         final String[] resources = new String[]{
                 "/properties/commons/LoginRequest.json",
                 "/properties/commons/CompositeInterface.json",
+                "/properties/form/IdempiereFormDeleteBinder.json",
                 "/properties/commons/AdvanceOptions.json",
         };
 
@@ -187,26 +206,7 @@ public class CompositeIdempiereFormBinder extends FormBinder implements FormStor
     protected ServiceMethod getMethod(int page) {
         Map<String, Object> map = (Map<String, Object>) getProperty("numberOfServices");
         Map<String, Object> prop = (Map<String, Object>) map.get("properties");
-
-        switch (String.valueOf(prop.get("method_" + page))) {
-            case "create_data":
-                return ServiceMethod.CREATE_DATA;
-            case "create_update_data":
-                return ServiceMethod.CREATE_OR_UPDATE_DATA;
-            case "delete_data":
-                return ServiceMethod.DELETE_DATA;
-            case "read_data":
-                return ServiceMethod.READ_DATA;
-            case "update_data":
-                return ServiceMethod.UPDATE_DATA;
-            case "get_list":
-                return ServiceMethod.GET_LIST;
-            case "set_docaction":
-                return ServiceMethod.SET_DOCUMENT_ACTION;
-            default:
-                return ServiceMethod.QUERY_DATA;
-        }
-
+        return getMethod(String.valueOf(prop.get("method_" + page)));
     }
 
     protected String getLanguage() {
@@ -292,7 +292,106 @@ public class CompositeIdempiereFormBinder extends FormBinder implements FormStor
                 .collect(Collectors.toMap(m -> m.getOrDefault("apiField", ""), m -> m.getOrDefault("formField", "")));
     }
 
-    protected boolean isDebug() {
+    @Override
+    public boolean isDebug() {
         return "true".equalsIgnoreCase(getPropertyString("debug"));
+    }
+
+    @Override
+    public String getDeletionService() {
+        return getPropertyString("deletionService");
+    }
+
+    @Override
+    public ServiceMethod getDeletionServiceMethod() {
+        return getMethod(getPropertyString("deletionMethod"));
+    }
+
+    @Override
+    public StandardResponse executeDeletionService(int primaryKey, String serviceType, ServiceMethod method, Map<String, String> parameters, Map<String, String> fieldInput) throws IdempiereClientException {
+        final String username = getUsername();
+        final String password = getPassword();
+        final String language = getLanguage();
+        final Integer clientId = getClientId();
+        final Integer roleId = getRoleId();
+        final Integer orgId = getOrgId();
+        final Integer warehouseId = getWarehouseId();
+        final Integer stage = getStage();
+
+        final String docAction = parameters.get("docAction");
+
+        final ModelOrientedWebService.Builder builder = new ModelOrientedWebService.Builder()
+                .setBaseUrl(getBaseUrl())
+                .setServiceType(serviceType)
+                .setMethod(method)
+                .setLoginRequest(new LoginRequest(username, password, language, clientId, roleId, orgId, warehouseId))
+                .setTable(getDeleteTable())
+                .setDocAction(docAction);
+
+        if (primaryKey > 0) {
+            builder.setRecordId(primaryKey);
+        }
+
+        if (isIgnoreCertificateError()) {
+            builder.ignoreSslCertificateError();
+        }
+
+        try {
+            final ModelOrientedWebService webService = builder.build();
+            if (isDebug()) {
+                LogUtil.info(getClass().getName(), "executeDeletionService : request [" + webService.getRequest().getRequestPayload() + "]");
+            }
+
+            StandardResponse response = (StandardResponse) webService.execute();
+
+            if (isDebug()) {
+                LogUtil.info(getClass().getName(), "executeDeletionService : response [" + response.getResponsePayload() + "]");
+            }
+
+            return response;
+        } catch (WebServiceBuilderException | WebServiceResponseException | WebServiceRequestException e) {
+            throw new IdempiereClientException(e);
+        }
+    }
+
+    @Override
+    public Map<String, String> getDeletionParameters() {
+        Object[] webServiceParameters = getPropertyGrid("deletionWebServiceParameters");
+        return Arrays.stream(webServiceParameters)
+                .map(o -> (Map<String, String>) o)
+                .collect(Collectors.toMap(m -> m.getOrDefault("parameterName", ""), m -> m.getOrDefault("parameterValue", "")));
+    }
+
+    @Override
+    public Map<String, String> getDeletionFieldInput() {
+        Object[] webServiceInput = getPropertyGrid("deletionWebServiceInput");
+        return Arrays.stream(webServiceInput)
+                .map(o -> (Map<String, String>) o)
+                .collect(Collectors.toMap(m -> m.getOrDefault("apiField", ""), m -> m.getOrDefault("formField", "")));
+    }
+
+    protected String getDeleteTable() {
+        return getPropertyString("table");
+    }
+
+    protected ServiceMethod getMethod(String method) {
+        switch (method) {
+            case "create_data":
+                return ServiceMethod.CREATE_DATA;
+            case "create_update_data":
+                return ServiceMethod.CREATE_OR_UPDATE_DATA;
+            case "delete_data":
+                return ServiceMethod.DELETE_DATA;
+            case "read_data":
+                return ServiceMethod.READ_DATA;
+            case "update_data":
+                return ServiceMethod.UPDATE_DATA;
+            case "get_list":
+                return ServiceMethod.GET_LIST;
+            case "set_docaction":
+                return ServiceMethod.SET_DOCUMENT_ACTION;
+            default:
+                return ServiceMethod.QUERY_DATA;
+        }
     }
 }

@@ -32,6 +32,7 @@ public class IdempiereLoadFormBinder extends FormBinder implements FormLoadEleme
 
     @Override
     public FormRowSet load(Element form, String primaryKey, FormData formData) {
+        final boolean isDebug = isDebug();
         if (isDebug()) {
             LogUtil.info(getClass().getName(), "load : primaryKey [" + primaryKey + "]");
 
@@ -180,10 +181,6 @@ public class IdempiereLoadFormBinder extends FormBinder implements FormLoadEleme
         return getPropertyString("service");
     }
 
-    protected String getDeletionService() {
-        return getPropertyString("deletionService");
-    }
-
     protected String getLanguage() {
         return getPropertyString("language");
     }
@@ -269,7 +266,7 @@ public class IdempiereLoadFormBinder extends FormBinder implements FormLoadEleme
         try {
             final ModelOrientedWebService webService = builder.build();
             if (isDebug()) {
-                LogUtil.info(getClass().getName(), "executeService : request [" + webService.getRequestPayload() + "]");
+                LogUtil.info(getClass().getName(), "executeService : request [" + webService.getRequest().getRequestPayload() + "]");
             }
             WindowTabData response = (WindowTabData) webService.execute();
 

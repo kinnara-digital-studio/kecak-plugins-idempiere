@@ -26,7 +26,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class IdempiereStoreFormBinder extends FormBinder implements FormStoreElementBinder, FormDeleteBinder {
+public class IdempiereStoreFormBinder extends FormBinder implements FormStoreElementBinder, IdempiereFormDeleteBinder {
     public final static String LABEL = "iDempiere Form Store Binder";
 
     @Override
@@ -127,7 +127,7 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
                 "/properties/commons/LoginRequest.json",
                 "/properties/commons/WebServiceType.json",
                 "/properties/commons/WebServiceParameters.json",
-                "properties/form/IdempiereFormStoreBinder.json",
+                "properties/form/IdempiereFormDeleteBinder.json",
                 "/properties/commons/AdvanceOptions.json"
         };
 
@@ -153,7 +153,11 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
     }
 
     protected ServiceMethod getMethod() {
-        switch (getPropertyString("method")) {
+        return getMethod(getPropertyString("method"));
+    }
+
+    protected ServiceMethod getMethod(String method) {
+        switch (method) {
             case "create_data":
                 return ServiceMethod.CREATE_DATA;
             case "create_update_data":
@@ -175,10 +179,6 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
 
     protected String getService() {
         return getPropertyString("service");
-    }
-
-    protected String getDeletionService() {
-        return getPropertyString("deletionService");
     }
 
     protected String getLanguage() {
@@ -227,50 +227,11 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
         return getTable() + "_ID";
     }
 
-    protected WindowTabData executeService(Integer primaryKey, String serviceType, DataRow dataRow) throws IdempiereClientException {
-        final String username = getUsername();
-        final String password = getPassword();
-        final ServiceMethod method = getMethod();
-        final String language = getLanguage();
-        final Integer clientId = getClientId();
-        final Integer roleId = getRoleId();
-        final Integer orgId = getOrgId();
-        final Integer warehouseId = getWarehouseId();
-        final Integer stage = getStage();
-
-        final ModelOrientedWebService.Builder builder = new ModelOrientedWebService.Builder()
-                .setBaseUrl(getBaseUrl())
-                .setServiceType(serviceType)
-                .setMethod(method)
-                .setDataRow(dataRow)
-                .setLimit(1)    // supposed to be only 1 data
-                .setLoginRequest(new LoginRequest(username, password, language, clientId, roleId, orgId, warehouseId))
-                .setTable(getTable());
-
-        if (primaryKey != null && primaryKey > 0) {
-            builder.setRecordId(primaryKey);
-        }
-
-        if (isIgnoreCertificateError()) {
-            builder.ignoreSslCertificateError();
-        }
-
-        try {
-            final ModelOrientedWebService webService = builder.build();
-            if (isDebug()) {
-                LogUtil.info(getClass().getName(), "executeService : request [" + webService.getRequestPayload() + "]");
-            }
-            WindowTabData response = (WindowTabData) webService.execute();
-
-
-            if (isDebug()) {
-                LogUtil.info(getClass().getName(), "executeService : response [" + response.getResponsePayload() + "]");
-            }
-
-            return response;
-        } catch (WebServiceBuilderException | WebServiceResponseException | WebServiceRequestException e) {
-            throw new IdempiereClientException(e);
-        }
+    protected Map<String, String> getParameters() {
+        Object[] webServiceParameters = getPropertyGrid("webServiceParameters");
+        return Arrays.stream(webServiceParameters)
+                .map(o -> (Map<String, String>) o)
+                .collect(Collectors.toMap(m -> m.getOrDefault("parameterName", ""), m -> m.getOrDefault("parameterValue", "")));
     }
 
     protected StandardResponse executeService(Element rootElement, FormRow row, FormData formData) throws IdempiereClientException {
@@ -316,6 +277,9 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
 
         final DataRow dataRow = new DataRow(new Field(fieldEntries));
 
+        final Map<String, String> parameters = getParameters();
+
+        final String doAction = parameters.get("doAction");
 
         final ModelOrientedWebService.Builder builder = new ModelOrientedWebService.Builder()
                 .setBaseUrl(getBaseUrl())
@@ -323,6 +287,7 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
                 .setMethod(method)
                 .setLoginRequest(new LoginRequest(username, password, language, clientId, roleId, orgId, warehouseId))
                 .setTable(getTable())
+                .setDocAction(doAction)
                 .setDataRow(dataRow);
 
         Optional.ofNullable(row.getId())
@@ -337,7 +302,7 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
         try {
             final ModelOrientedWebService webService = builder.build();
             if (isDebug()) {
-                LogUtil.info(getClass().getName(), "executeService : request [" + webService.getRequestPayload() + "]");
+                LogUtil.info(getClass().getName(), "executeService : request [" + webService.getRequest().getRequestPayload() + "]");
             }
             return (StandardResponse) webService.execute();
         } catch (WebServiceBuilderException | WebServiceResponseException | WebServiceRequestException e) {
@@ -371,32 +336,83 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
         return variableMap;
     }
 
-    protected boolean isDebug() {
-        return "true".equalsIgnoreCase(getPropertyString("debug"));
+    @Override
+    public String getDeletionService() {
+        return getPropertyString("deletionService");
     }
 
     @Override
-    public void delete(Element element, FormRowSet rowSet, FormData formData, boolean deleteGrid, boolean deleteSubform, boolean abortProcess, boolean deleteFiles, boolean hardDelete) {
-        final boolean isDebug = isDebug();
-        final String serviceType = getDeletionService();
-        if (serviceType.isEmpty()) {
-            return;
+    public ServiceMethod getDeletionServiceMethod() {
+        return getMethod(getPropertyString("deletionMethod"));
+    }
+
+    @Override
+    public StandardResponse executeDeletionService(int primaryKey, String serviceType, ServiceMethod method, Map<String, String> parameters, Map<String, String> fieldInput) throws IdempiereClientException {
+        final String username = getUsername();
+        final String password = getPassword();
+        final String language = getLanguage();
+        final Integer clientId = getClientId();
+        final Integer roleId = getRoleId();
+        final Integer orgId = getOrgId();
+        final Integer warehouseId = getWarehouseId();
+        final Integer stage = getStage();
+
+        final ModelOrientedWebService.Builder builder = new ModelOrientedWebService.Builder()
+                .setBaseUrl(getBaseUrl())
+                .setServiceType(serviceType)
+                .setMethod(method)
+                .setLoginRequest(new LoginRequest(username, password, language, clientId, roleId, orgId, warehouseId))
+                .setTable(getTable());
+
+        if (primaryKey > 0) {
+            builder.setRecordId(primaryKey);
         }
 
-        Optional.ofNullable(rowSet)
-                .map(Collection::stream)
-                .orElseGet(Stream::empty)
-                .map(FormRow::getId)
-                .map(Try.onFunction(Integer::valueOf, (NumberFormatException e) -> 0))
-                .forEach(Try.onConsumer(primaryKey -> {
-                    if (isDebug) {
-                        LogUtil.info(getClass().getName(), "Deleting Record ID [" + primaryKey + "] service [" + serviceType + "]");
-                    }
+        final String docAction = parameters.getOrDefault("docAction", "");
+        LogUtil.info(getClass().getName(), "executeDeletionService : docAction ["+docAction+"]");
+        if(!docAction.isEmpty()) {
+            builder.setDocAction(docAction);
+        }
 
-                    final WindowTabData response = executeService(primaryKey, serviceType, new DataRow(new FieldEntry[0]));
-                    if (!response.isSucceed()) {
-                        throw new IdempiereClientException("Error deleting data [" + primaryKey + "]");
-                    }
-                }));
+        if (isIgnoreCertificateError()) {
+            builder.ignoreSslCertificateError();
+        }
+
+        try {
+            final ModelOrientedWebService webService = builder.build();
+            if (isDebug()) {
+                LogUtil.info(getClass().getName(), "executeService : request [" + webService.getRequest().getRequestPayload() + "]");
+            }
+
+            StandardResponse response = (StandardResponse) webService.execute();
+
+            if (isDebug()) {
+                LogUtil.info(getClass().getName(), "executeService : response [" + response.getResponsePayload() + "]");
+            }
+
+            return response;
+        } catch (WebServiceBuilderException | WebServiceResponseException | WebServiceRequestException e) {
+            throw new IdempiereClientException(e);
+        }
+    }
+
+    @Override
+    public Map<String, String> getDeletionParameters() {
+        Object[] webServiceParameters = getPropertyGrid("deletionWebServiceParameters");
+        return Arrays.stream(webServiceParameters)
+                .map(o -> (Map<String, String>) o)
+                .collect(Collectors.toMap(m -> m.getOrDefault("parameterName", ""), m -> m.getOrDefault("parameterValue", "")));
+    }
+
+    @Override
+    public Map<String, String> getDeletionFieldInput() {
+        Object[] webServiceInput = getPropertyGrid("deletionWebServiceInput");
+        return Arrays.stream(webServiceInput)
+                .map(o -> (Map<String, String>) o)
+                .collect(Collectors.toMap(m -> m.getOrDefault("apiField", ""), m -> m.getOrDefault("formField", "")));
+    }
+
+    public boolean isDebug() {
+        return "true".equalsIgnoreCase(getPropertyString("debug"));
     }
 }

@@ -162,8 +162,6 @@ public class IdempiereDatalistAction extends DataListActionDefault implements Id
             final Integer warehouseId = getWarehouseId();
             final Integer stage = getStage();
 
-            
-
             final JSONObject jsonPayload = generatePayload(method, serviceType, primaryKey, username, password, language, clientId, roleId, orgId, String.valueOf(warehouseId), String.valueOf(stage), null, null);
 
             final HttpUriRequest request = getHttpRequest(url.toString(), "POST", headers, jsonPayload.toString());
