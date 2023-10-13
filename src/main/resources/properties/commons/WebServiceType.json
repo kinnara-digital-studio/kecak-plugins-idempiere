@@ -55,8 +55,7 @@
       {
         "name": "table",
         "label": "@@idempiere.table@@",
-        "type": "textfield",
-        "required": "true"
+        "type": "textfield"
       }
     ]
   }

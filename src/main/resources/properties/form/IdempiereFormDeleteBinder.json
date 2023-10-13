@@ -11,6 +11,7 @@
         "name": "deletionMethod",
         "label": "@@idempiere.method@@",
         "type": "selectbox",
+        "required": "true",
         "options": [
           {
             "value": "create_data",

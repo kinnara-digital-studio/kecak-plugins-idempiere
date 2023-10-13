@@ -279,7 +279,7 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
 
         final Map<String, String> parameters = getParameters();
 
-        final String doAction = parameters.get("doAction");
+        final String docAction = parameters.get("docAction");
 
         final ModelOrientedWebService.Builder builder = new ModelOrientedWebService.Builder()
                 .setBaseUrl(getBaseUrl())
@@ -287,7 +287,7 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
                 .setMethod(method)
                 .setLoginRequest(new LoginRequest(username, password, language, clientId, roleId, orgId, warehouseId))
                 .setTable(getTable())
-                .setDocAction(doAction)
+                .setDocAction(docAction)
                 .setDataRow(dataRow);
 
         Optional.ofNullable(row.getId())
