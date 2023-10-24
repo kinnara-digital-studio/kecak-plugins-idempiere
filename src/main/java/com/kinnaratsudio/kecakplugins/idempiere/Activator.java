@@ -5,6 +5,7 @@ import java.util.Collection;
 
 import com.kinnaratsudio.kecakplugins.idempiere.datalist.IdempiereDataListBinder;
 import com.kinnaratsudio.kecakplugins.idempiere.datalist.IdempiereDataListFilter;
+import com.kinnaratsudio.kecakplugins.idempiere.datalist.IdempiereDataListFormatter;
 import com.kinnaratsudio.kecakplugins.idempiere.datalist.IdempiereDatalistAction;
 import com.kinnaratsudio.kecakplugins.idempiere.form.*;
 import com.kinnaratsudio.kecakplugins.idempiere.hashvariable.IdempiereConfigHashVariable;
@@ -32,6 +33,7 @@ public class Activator implements BundleActivator {
         registrationList.add(context.registerService(IdempiereDataListBinder.class.getName(), new IdempiereDataListBinder(), null));
         registrationList.add(context.registerService(IdempiereDatalistAction.class.getName(), new IdempiereDatalistAction(), null));
         registrationList.add(context.registerService(IdempiereDataListFilter.class.getName(), new IdempiereDataListFilter(), null));
+        registrationList.add(context.registerService(IdempiereDataListFormatter.class.getName(), new IdempiereDataListFormatter(), null));
         registrationList.add(context.registerService(IdempiereWebServiceTool.class.getName(), new IdempiereWebServiceTool(), null));
         registrationList.add(context.registerService(IdempiereConfigHashVariable.class.getName(), new IdempiereConfigHashVariable(), null));
         registrationList.add(context.registerService(IdempiereWebServiceQueryDataHashVariable.class.getName(), new IdempiereWebServiceQueryDataHashVariable(), null));

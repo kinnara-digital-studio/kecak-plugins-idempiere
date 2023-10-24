@@ -19,8 +19,222 @@
           {
             "value": "foreignKey",
             "label": "Foreign Key"
+          },
+          {
+            "value": "options",
+            "label": "@@idempiere.options@@"
           }
         ]
+      },
+      {
+        "type": "header",
+        "label": "@@idempiere.options@@",
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name": "baseUrl",
+        "label": "@@idempiere.baseUrl@@",
+        "type": "textfield",
+        "value": "#idempiereConfig.baseUrl#",
+        "required": "true",
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name": "username",
+        "label": "@@idempiere.username@@",
+        "type": "textfield",
+        "value": "#idempiereConfig.user#",
+        "required": "true",
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name": "password",
+        "label": "@@idempiere.password@@",
+        "type": "textfield",
+        "value": "#idempiereConfig.password#",
+        "required": "true",
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name": "language",
+        "type": "textfield",
+        "label": "@@idempiere.language@@",
+        "value": "#idempiereConfig.lang#",
+        "required": "true",
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name": "clientId",
+        "type": "textfield",
+        "label": "@@idempiere.clientId@@",
+        "value": "#idempiereConfig.clientId#",
+        "required": "true",
+        "regex_validation": "[0-9]*",
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name": "roleId",
+        "type": "textfield",
+        "label": "@@idempiere.roleId@@",
+        "value": "#idempiereConfig.roleId#",
+        "required": "true",
+        "regex_validation": "[0-9]*",
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name": "orgId",
+        "type": "textfield",
+        "label": "@@idempiere.orgId@@",
+        "value": "#idempiereConfig.orgId#",
+        "regex_validation": "[0-9]*",
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name": "warehouseId",
+        "type": "textfield",
+        "label": "@@idempiere.warehouseId@@",
+        "value": "#idempiereConfig.warehouseId#",
+        "regex_validation": "[0-9]*",
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name": "stage",
+        "type": "hidden",
+        "value": "#idempiereConfig.stage#",
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name": "service",
+        "label": "@@idempiere.service@@",
+        "type": "textfield",
+        "required": "true",
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name": "method",
+        "label": "@@idempiere.method@@",
+        "type": "selectbox",
+        "required": "true",
+        "options": [
+          {
+            "value": "query_data",
+            "label": "@@idempiere.method.query_data@@"
+          }
+        ],
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name": "table",
+        "label": "@@idempiere.table@@",
+        "type": "textfield",
+        "required": "true",
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name": "webServiceParameters",
+        "label": "@@idempiere.webServiceParameters@@",
+        "type": "grid",
+        "columns" : [
+          {
+            "key" : "parameterName",
+            "label" : "@@idempiere.parameterName@@",
+            "required": "true"
+          },
+          {
+            "key" : "parameterValue",
+            "label" : "@@idempiere.parameterValue@@",
+            "required": "true"
+          }
+        ],
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name": "webServiceInput",
+        "label": "@@idempiere.webServiceInput@@",
+        "type": "grid",
+        "description": "@@idempiere.dataRow.desc@@",
+        "columns" : [
+          {
+            "key": "apiField",
+            "label" : "@@idempiere.apiField@@",
+            "required": "true"
+          },
+          {
+            "key" : "formField",
+            "label" : "@@idempiere.formField@@",
+            "required": "true"
+          }
+        ],
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name" : "ignoreCertificateError",
+        "label" : "@@idempiere.ignoreCertificateError@@",
+        "type" : "checkbox",
+        "value": "true",
+        "options" : [
+          {
+            "value" : "true",
+            "label" : ""
+          }
+        ],
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name" : "debug",
+        "label" : "@@idempiere.debug@@",
+        "type" : "checkbox",
+        "value": "true",
+        "options" : [
+          {
+            "value" : "true",
+            "label" : ""
+          }
+        ],
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
+      },
+      {
+        "name": "labelField",
+        "label": "@@idempiere.labelField@@",
+        "type": "textfield",
+        "required": "true",
+        "control_field": "operation",
+        "control_value": "options",
+        "control_use_regex": "false"
       }
     ]
   }

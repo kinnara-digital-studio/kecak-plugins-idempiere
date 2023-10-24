@@ -1,0 +1,13 @@
+[
+  {
+    "title": "@@idempiere.dataListFormatter@@",
+    "properties": [
+      {
+        "name": "labelField",
+        "label": "@@idempiere.labelField@@",
+        "type": "textfield",
+        "required": "true"
+      }
+    ]
+  }
+]

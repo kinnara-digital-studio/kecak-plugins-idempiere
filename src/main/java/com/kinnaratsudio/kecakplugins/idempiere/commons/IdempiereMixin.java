@@ -73,20 +73,11 @@ import static org.apache.http.entity.mime.HttpMultipartMode.BROWSER_COMPATIBLE;
 /**
  * @author aristo
  */
-public interface IdempiereMixin extends PropertyEditable, Unclutter {
+public interface IdempiereMixin extends PropertyEditable {
     String APP_ID = "idempiereconfig";
     String FORM_LOGIN = "idempiereLogin";
 
     Map<String, Form> formCache = new HashMap<>();
-
-    /**
-     * Get property "method"
-     *
-     * @return
-     */
-    default String getPropertyMethod() {
-        return ifEmptyThen(getPropertyString("method"), "GET");
-    }
 
     /**
      * Get property "headers"
@@ -116,7 +107,7 @@ public interface IdempiereMixin extends PropertyEditable, Unclutter {
     default String getParameterString(@Nullable WorkflowAssignment assignment) {
         return getParameters()
                 .stream()
-                .map(throwableFunction(m -> String.format("%s=%s", m.get("key"), URLEncoder.encode(AppUtil.processHashVariable(m.get("value"), assignment, null, null), "UTF-8"))))
+                .map(Try.onFunction(m -> String.format("%s=%s", m.get("key"), URLEncoder.encode(AppUtil.processHashVariable(m.get("value"), assignment, null, null), "UTF-8"))))
                 .collect(Collectors.joining("&"));
     }
 
@@ -191,15 +182,6 @@ public interface IdempiereMixin extends PropertyEditable, Unclutter {
 
     default String processHashVariable(String content, @Nullable WorkflowAssignment assignment) {
         return AppUtil.processHashVariable(content, assignment, null, null);
-    }
-
-    /**
-     * Get property "ignoreCertificateError"
-     *
-     * @return
-     */
-    default boolean isIgnoreCertificateError() {
-        return "true".equalsIgnoreCase(getPropertyString("ignoreCertificateError"));
     }
 
     /**
@@ -406,7 +388,7 @@ public interface IdempiereMixin extends PropertyEditable, Unclutter {
 
                 Optional.of(entityEnclosingRequest)
                         .map(HttpEntityEnclosingRequestBase::getEntity)
-                        .map(throwableFunction(HttpEntity::getContent)).ifPresent(inputStream -> {
+                        .map(Try.onFunction(HttpEntity::getContent)).ifPresent(inputStream -> {
                             try (BufferedReader br = new BufferedReader(new InputStreamReader(entityEnclosingRequest.getEntity().getContent()))) {
                                 String bodyContent = br.lines().collect(Collectors.joining());
                                 LogUtil.info(getClassName(), "getHttpRequest : Content-Type [" + requestContentType + "] method [" + requestMethod + "] bodyContent [" + bodyContent + "]");
@@ -532,8 +514,8 @@ public interface IdempiereMixin extends PropertyEditable, Unclutter {
 
         FormRowSet jsonResult = Optional.of(response)
                 .map(HttpResponse::getEntity)
-                .map(throwableFunction(HttpEntity::getContent))
-                .map(throwableFunction(is -> {
+                .map(Try.onFunction(HttpEntity::getContent))
+                .map(Try.onFunction(is -> {
                     try (InputStreamReader streamReader = new InputStreamReader(is);
                          JsonReader reader = new JsonReader(streamReader)) {
 
@@ -815,7 +797,7 @@ public interface IdempiereMixin extends PropertyEditable, Unclutter {
                 .map(Arrays::stream)
                 .orElseGet(Stream::empty)
                 .filter(Objects::nonNull)
-                .filter(not(DataListColumn::isHidden))
+                .filter(Try.toNegate(DataListColumn::isHidden))
                 .map(DataListColumn::getName)
                 .filter(Objects::nonNull)
                 .distinct()
@@ -845,7 +827,7 @@ public interface IdempiereMixin extends PropertyEditable, Unclutter {
                 .filter(c -> field.equals(c.getName()))
                 .findFirst()
                 .map(column -> Optional.of(column)
-                        .map(throwableFunction(DataListColumn::getFormats))
+                        .map(Try.onFunction(DataListColumn::getFormats))
                         .map(Collection::stream)
                         .orElseGet(Stream::empty)
                         .filter(Objects::nonNull)
@@ -1108,5 +1090,9 @@ public interface IdempiereMixin extends PropertyEditable, Unclutter {
     default Form getLoginForm() throws IdempiereClientException {
         final AppDefinition appDefinition = getIdempiereConfAppDefinition();
         return generateForm(appDefinition, FORM_LOGIN);
+    }
+
+    default boolean isStringConstant(String val) {
+        return val.trim().matches("^\".+\"$");
     }
 }

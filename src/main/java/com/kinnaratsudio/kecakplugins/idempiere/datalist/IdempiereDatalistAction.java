@@ -250,4 +250,8 @@ public class IdempiereDatalistAction extends DataListActionDefault implements Id
     protected String getTablePrimaryKey() {
         return getTable() + "_ID";
     }
+
+    protected boolean isIgnoreCertificateError() {
+        return "true".equalsIgnoreCase(getPropertyString("ignoreCertificateError"));
+    }
 }

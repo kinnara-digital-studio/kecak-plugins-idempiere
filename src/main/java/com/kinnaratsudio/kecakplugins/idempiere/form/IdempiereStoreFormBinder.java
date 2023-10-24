@@ -40,10 +40,6 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
                     .findFirst()
                     .orElseThrow(() -> new IdempiereClientException("No record to store"));
 
-            if(row.getId() == null && formData.getPrimaryKeyValue() != null) {
-                row.setId(formData.getPrimaryKeyValue());
-            }
-
             if (isDebug) {
                 LogUtil.info(getClass().getName(), "store : row [" + row.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining(",")) + "]");
             }

@@ -13,18 +13,19 @@ import com.kinnarastudio.idempiere.model.WindowTabData;
 import com.kinnarastudio.idempiere.type.ServiceMethod;
 import com.kinnarastudio.idempiere.webservice.ModelOrientedWebService;
 import com.kinnaratsudio.kecakplugins.idempiere.exception.IdempiereClientException;
+import net.sf.ehcache.Cache;
+import net.sf.ehcache.CacheManager;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.form.model.*;
 import org.joget.apps.form.service.FormUtil;
 import org.joget.commons.util.LogUtil;
 import org.joget.plugin.base.PluginManager;
 import org.json.JSONArray;
+import org.springframework.context.ApplicationContext;
 
 import javax.annotation.Nullable;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Optional;
-import java.util.ResourceBundle;
+import javax.swing.text.html.Option;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -45,7 +46,7 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
             final String groupingField = getGroupingField();
 
             final WindowTabData response = executeService(groupingField, dependencyValues);
-            return Arrays.stream(response.getDataRows())
+            final FormRowSet result = Arrays.stream(response.getDataRows())
                     .map(DataRow::getFieldEntries)
                     .map(fe -> {
                         final FormRow row = new FormRow();
@@ -57,7 +58,7 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
                                 row.setProperty(FormUtil.PROPERTY_VALUE, value);
                             } else if (column.equals(labelField)) {
                                 row.setProperty(FormUtil.PROPERTY_LABEL, value);
-                            } else if(column.equals(groupingField)) {
+                            } else if (column.equals(groupingField)) {
                                 row.setProperty(FormUtil.PROPERTY_GROUPING, value);
                             }
                         }));
@@ -65,6 +66,26 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
                         return row;
                     })
                     .collect(Collectors.toCollection(FormRowSet::new));
+
+//            final Cache cache = (Cache) AppUtil.getApplicationContext().getBean("formOptionsCache");
+//
+//            final String cacheKey = getClassName();
+//            Optional<FormRowSet> cached = Optional.ofNullable(cache)
+//                    .map(c -> c.get(cacheKey))
+//                    .map(Try.toPeek(e -> LogUtil.info(getClass().getName(), "e.getExpirationTime() ["+new Date(e.getExpirationTime())+"]")))
+//                    .map(net.sf.ehcache.Element::getObjectValue)
+//                    .map(o -> (FormRowSet) o);
+//
+//            if (cached.isPresent()) {
+//                LogUtil.info(getClass().getName(), "Get from cache key [" + getClassName() + "]");
+//                return cached.get();
+//            }
+//            Optional.ofNullable(cache).ifPresent(c -> {
+//                LogUtil.info(getClass().getName(), "Put to cache key [" + getClassName() + "]");
+//                c.put(new net.sf.ehcache.Element(getClassName(), result));
+//            });
+
+            return result;
         } catch (IdempiereClientException e) {
             LogUtil.error(getClassName(), e, e.getMessage());
             return null;
@@ -182,7 +203,7 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
     protected Integer getWarehouseId() {
         try {
             return Integer.valueOf(getPropertyString("warehouseId"));
-        }catch (NumberFormatException e) {
+        } catch (NumberFormatException e) {
             return null;
         }
     }
@@ -208,6 +229,7 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
         return Arrays.stream(getPropertyGrid("webServiceInput"))
                 .collect(Collectors.toMap(m -> m.get("inputField"), m -> m.get("value")));
     }
+
     protected String getValueField() {
         return getPropertyString("valueField");
     }
@@ -253,7 +275,7 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
                 .setLoginRequest(new LoginRequest(username, password, language, clientId, roleId, orgId, warehouseId))
                 .setTable(getTable());
 
-        if(isIgnoreCertificateError()) {
+        if (isIgnoreCertificateError()) {
             builder.ignoreSslCertificateError();
         }
 

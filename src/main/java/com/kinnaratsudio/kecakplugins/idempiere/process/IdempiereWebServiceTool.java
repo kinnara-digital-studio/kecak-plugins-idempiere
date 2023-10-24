@@ -250,4 +250,8 @@ public class IdempiereWebServiceTool extends DefaultApplicationPlugin implements
                 .map(o -> (Map<String, String>)o)
                 .collect(Collectors.toMap(m -> String.valueOf(m.get("fieldColumn")), m -> String.valueOf(m.get("wfVariable"))));
     }
+
+    protected boolean isIgnoreCertificateError() {
+        return "true".equalsIgnoreCase(getPropertyString("ignoreCertificateError"));
+    }
 }

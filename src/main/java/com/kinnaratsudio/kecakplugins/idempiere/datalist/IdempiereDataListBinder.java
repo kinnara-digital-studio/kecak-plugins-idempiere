@@ -30,7 +30,7 @@ public class IdempiereDataListBinder extends DataListBinderDefault {
             final String serviceType = getService();
             final ServiceMethod method = getMethod();
 
-            final WindowTabData response = executeService(serviceType, method, null, null, null, null, 1);
+            final WindowTabData response = executeService(serviceType, method, null, null, null, null, 1, true);
 
             return Optional.of(response)
                     .map(WindowTabData::getDataRows)
@@ -50,9 +50,9 @@ public class IdempiereDataListBinder extends DataListBinderDefault {
 
     @Override
     public String getPrimaryKeyColumnName() {
-        if(!getPropertyString("primaryKeyColumn").isEmpty()) {
+        if (!getPropertyString("primaryKeyColumn").isEmpty()) {
             return getPropertyString("primaryKeyColumn");
-        } else if(!getTable().isEmpty()) {
+        } else if (!getTable().isEmpty()) {
             return getTable() + "_ID";
         } else {
             return "id";
@@ -65,7 +65,7 @@ public class IdempiereDataListBinder extends DataListBinderDefault {
 
             final String serviceType = getService();
             final ServiceMethod method = getMethod();
-            final WindowTabData response = executeService(serviceType, method, filterQueryObjects, sort, desc, start, rows);
+            final WindowTabData response = executeService(serviceType, method, filterQueryObjects, sort, desc, start, rows, false);
             return Arrays.stream(response.getDataRows())
                     .map(dr -> Arrays.stream(dr.getFieldEntries())
                             .collect(Collectors.toMap(FieldEntry::getColumn, e -> String.valueOf(e.getValue()))))
@@ -81,7 +81,7 @@ public class IdempiereDataListBinder extends DataListBinderDefault {
         try {
             final String serviceType = getService();
             final ServiceMethod method = getMethod();
-            final WindowTabData response = executeService(serviceType, method, filterQueryObjects, null, null, null, 1);
+            final WindowTabData response = executeService(serviceType, method, filterQueryObjects, null, null, null, 1, false);
             return response.getTotalRows();
         } catch (IdempiereClientException e) {
             LogUtil.error(getClassName(), e, e.getMessage());
@@ -221,7 +221,7 @@ public class IdempiereDataListBinder extends DataListBinderDefault {
                 .collect(Collectors.toMap(m -> m.get("inputField"), m -> m.get("value")));
     }
 
-    protected WindowTabData executeService(String serviceType, ServiceMethod method, @Nullable DataListFilterQueryObject[] filterQueryObjects, String sortIgnored, @Nullable Boolean descIgnored, @Nullable Integer start, @Nullable Integer rows) throws IdempiereClientException {
+    protected WindowTabData executeService(String serviceType, ServiceMethod method, @Nullable DataListFilterQueryObject[] filterQueryObjects, String sortIgnored, @Nullable Boolean descIgnored, @Nullable Integer start, @Nullable Integer rows, boolean isGetColumns) throws IdempiereClientException {
         final String username = getUsername();
         final String password = getPassword();
         final String language = getLanguage();
@@ -237,28 +237,43 @@ public class IdempiereDataListBinder extends DataListBinderDefault {
             final Stream<FieldEntry> streamQueryObjects = Optional.ofNullable(filterQueryObjects)
                     .map(Arrays::stream)
                     .orElseGet(Stream::empty)
-                    .filter(q -> q instanceof IdempiereDataListFilter.IdempiereDataListFilterQueryObject)
+                    .filter(q -> q instanceof IdempiereDataListFilter.IdempiereDataListFilterQueryObject && q.getValues() != null)
                     .map(q -> {
                         final IdempiereDataListFilter.FilterQueryType type = ((IdempiereDataListFilter.IdempiereDataListFilterQueryObject) q).getType();
                         final String name = q.getQuery();
-                        return Optional.of(q)
-                                .map(DataListFilterQueryObject::getValues)
-                                .map(Arrays::stream)
-                                .orElseGet(Stream::empty)
-                                .filter(Objects::nonNull)
-                                .map(s -> s.split(";"))
-                                .flatMap(Arrays::stream)
-                                .filter(Try.toNegate(String::isEmpty))
-                                .map(s -> {
-                                    final String value;
-                                    if(type == IdempiereDataListFilter.FilterQueryType.LIKE) {
-                                        value = "%" + s + "%";
-                                    } else {
-                                        value = s;
-                                    }
-                                    return new FieldEntry(name, value);
-                                })
-                                .toArray(FieldEntry[]::new);
+
+                        if (type == IdempiereDataListFilter.FilterQueryType.OPTIONS) {
+                            final String[] value = Optional.of(q)
+                                    .map(DataListFilterQueryObject::getValues)
+                                    .map(Arrays::stream)
+                                    .orElseGet(Stream::empty)
+                                    .filter(Objects::nonNull)
+                                    .map(s -> s.split(";"))
+                                    .flatMap(Arrays::stream)
+                                    .toArray(String[]::new);
+
+                            return new FieldEntry[]{new FieldEntry(name, value)};
+
+                        } else {
+                            return Optional.of(q)
+                                    .map(DataListFilterQueryObject::getValues)
+                                    .map(Arrays::stream)
+                                    .orElseGet(Stream::empty)
+                                    .filter(Objects::nonNull)
+                                    .map(s -> s.split(";"))
+                                    .flatMap(Arrays::stream)
+                                    .filter(Try.toNegate(String::isEmpty))
+                                    .map(s -> {
+                                        final String value;
+                                        if (type == IdempiereDataListFilter.FilterQueryType.LIKE) {
+                                            value = "%" + s + "%";
+                                        } else {
+                                            value = s;
+                                        }
+                                        return new FieldEntry(name, value);
+                                    })
+                                    .toArray(FieldEntry[]::new);
+                        }
                     })
                     .flatMap(Arrays::stream);
 
@@ -274,16 +289,19 @@ public class IdempiereDataListBinder extends DataListBinderDefault {
                     .setLoginRequest(new LoginRequest(username, password, language, clientId, roleId, orgId, warehouseId))
                     .setOffset(start)
                     .setLimit(rows)
-                    .setTable(getTable())
-                    .setDataRow(dataRow);
+                    .setTable(getTable());
 
-            if(isIgnoreCertificateError()) {
+            if (!isGetColumns) {
+                builder.setDataRow(dataRow);
+            }
+
+            if (isIgnoreCertificateError()) {
                 builder.ignoreSslCertificateError();
             }
 
             final ModelOrientedWebService webService = builder.build();
 
-            LogUtil.info(getClass().getName(), "executeService : request ["+ webService.getRequest().getRequestPayload() +"]");
+            LogUtil.info(getClass().getName(), "executeService : request [" + webService.getRequest().getRequestPayload() + "]");
             return (WindowTabData) webService.execute();
 
         } catch (WebServiceRequestException | WebServiceBuilderException | WebServiceResponseException e) {

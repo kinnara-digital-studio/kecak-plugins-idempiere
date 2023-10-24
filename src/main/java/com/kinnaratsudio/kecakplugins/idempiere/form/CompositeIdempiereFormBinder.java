@@ -10,6 +10,7 @@ import com.kinnarastudio.idempiere.model.*;
 import com.kinnarastudio.idempiere.type.ServiceMethod;
 import com.kinnarastudio.idempiere.webservice.CompositeInterfaceWebService;
 import com.kinnarastudio.idempiere.webservice.ModelOrientedWebService;
+import com.kinnaratsudio.kecakplugins.idempiere.commons.IdempiereMixin;
 import com.kinnaratsudio.kecakplugins.idempiere.exception.IdempiereClientException;
 import com.kinnaratsudio.kecakplugins.idempiere.webservice.IdempiereGetPropertyJson;
 import org.joget.apps.app.service.AppUtil;
@@ -24,7 +25,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-public class CompositeIdempiereFormBinder extends FormBinder implements FormStoreElementBinder, IdempiereFormDeleteBinder {
+public class CompositeIdempiereFormBinder extends FormBinder implements IdempiereMixin, FormStoreElementBinder, IdempiereFormDeleteBinder {
     public final static String LABEL = "Composite iDempiere Form Store Binder";
 
     @Override
@@ -59,21 +60,38 @@ public class CompositeIdempiereFormBinder extends FormBinder implements FormStor
                 final FieldEntry[] fieldEntries = getWebServiceInput(i).entrySet().stream()
                         .filter(e -> !e.getKey().isEmpty())
                         .map(e -> {
-                            final String wsInputField = e.getKey();
                             final String formField = e.getValue();
-                            final String value = row.getProperty(formField);
-                            final String key = formField.isEmpty() ? formField : wsInputField;
+                            boolean isConstantValue = isStringConstant(formField);
+
+                            String key = e.getKey();
+                            String value = isConstantValue ? formField.replaceAll("^\"|\"$", "") : row.getProperty(formField);
+
                             return new FieldEntry(key, value);
                         })
                         .toArray(FieldEntry[]::new);
 
                 final Map<String, String> webServiceParameters = getWebServiceParameters(i);
 
-                final int recordId = Optional.ofNullable(webServiceParameters.get("RecordID"))
-                        .map(Try.onFunction(Integer::parseInt))
-                        .orElse(0);
+                final String recordIdVariable = webServiceParameters.get("recordIDVariable");
 
-                final String recordIdVariable = webServiceParameters.get("recordIdVariable");
+                final int recordId;
+                if(method == ServiceMethod.CREATE_DATA || recordIdVariable != null) {
+                    recordId = 0;
+                } else if(method == ServiceMethod.SET_DOCUMENT_ACTION) {
+                    recordId = Optional.ofNullable(webServiceParameters.get(ModelSetDocAction.PARAMETER_RECORD_ID))
+                            .map(Try.onFunction(Integer::parseInt))
+                            .orElseGet(() -> Optional.of(formData)
+                                    .map(FormData::getPrimaryKeyValue)
+                                    .map(Try.onFunction(Integer::parseInt))
+                                    .orElse(0));
+                } else {
+                    recordId = Optional.ofNullable(webServiceParameters.get(ModelCrud.PARAMETER_RECORD_ID))
+                            .map(Try.onFunction(Integer::parseInt))
+                            .orElseGet(() -> Optional.of(formData)
+                                    .map(FormData::getPrimaryKeyValue)
+                                    .map(Try.onFunction(Integer::parseInt))
+                                    .orElse(0));
+                }
 
                 final Integer offset = Optional.ofNullable(webServiceParameters.get("Offset"))
                         .map(Try.onFunction(Integer::parseInt))
@@ -83,7 +101,14 @@ public class CompositeIdempiereFormBinder extends FormBinder implements FormStor
                         .map(Try.onFunction(Integer::parseInt))
                         .orElse(null);
 
-                final Operation operation = new Operation(method, new ModelCrud(serviceType, tableName, recordId, recordIdVariable, offset, limit, new DataRow(fieldEntries)));
+                final Model model;
+                if(method == ServiceMethod.SET_DOCUMENT_ACTION) {
+                    final String docAction = webServiceParameters.get("docAction");
+                    model = new ModelSetDocAction(serviceType, tableName, recordId, recordIdVariable, docAction);
+                } else {
+                    model = new ModelCrud(serviceType, tableName, recordId, recordIdVariable, offset, limit, new DataRow(fieldEntries));
+                }
+                final Operation operation = new Operation(method, model);
 
                 if (isDebug) {
                     LogUtil.info(getClass().getName(), "Operation method [" + method + "] table [" + tableName + "] entries [" + Arrays.stream(fieldEntries).map(e -> e.getColumn() + "=" + e.getValue()).collect(Collectors.joining(",")) + "]");
