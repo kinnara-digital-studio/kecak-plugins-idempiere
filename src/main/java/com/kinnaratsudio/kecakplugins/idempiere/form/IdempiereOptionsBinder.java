@@ -26,11 +26,15 @@ import org.springframework.context.ApplicationContext;
 import javax.annotation.Nullable;
 import javax.swing.text.html.Option;
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class IdempiereOptionsBinder extends FormBinder implements FormLoadOptionsBinder, FormAjaxOptionsBinder {
     public final static String LABEL = "iDempiere Options Binder";
+
+    final private Predicate<String> isEmpty = String::isEmpty;
+    final private Predicate<String> isNotEmpty = isEmpty.negate();
 
     @Override
     public boolean useAjax() {
@@ -231,7 +235,9 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
     }
 
     protected String getValueField() {
-        return getPropertyString("valueField");
+        return Optional.of(getPropertyString("valueField"))
+                .filter(isNotEmpty)
+                .orElseGet(() -> getTable() + "_ID");
     }
 
     protected String getLabelField() {
