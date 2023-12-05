@@ -13,14 +13,15 @@
         "label": "@@idempiere.method@@",
         "type": "selectbox",
         "required": "true",
+        "value": "query_data",
         "options": [
-          {
-            "value": "get_list",
-            "label": "@@idempiere.method.get_list@@"
-          },
           {
             "value": "query_data",
             "label": "@@idempiere.method.query_data@@"
+          },
+          {
+            "value": "get_list",
+            "label": "@@idempiere.method.get_list@@"
           },
           {
             "value": "read_data",
