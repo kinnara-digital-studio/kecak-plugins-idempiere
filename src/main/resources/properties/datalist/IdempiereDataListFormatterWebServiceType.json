@@ -1,0 +1,38 @@
+[
+  {
+    "title": "Web Service Type",
+    "properties": [
+      {
+        "name": "service",
+        "label": "@@idempiere.service@@",
+        "type": "textfield",
+        "required": "true"
+      },
+      {
+        "name": "method",
+        "label": "@@idempiere.method@@",
+        "type": "selectbox",
+        "required": "true",
+        "options": [
+          {
+            "value": "get_list",
+            "label": "@@idempiere.method.get_list@@"
+          },
+          {
+            "value": "query_data",
+            "label": "@@idempiere.method.query_data@@"
+          },
+          {
+            "value": "read_data",
+            "label": "@@idempiere.method.read_data@@"
+          }
+        ]
+      },
+      {
+        "name": "table",
+        "label": "@@idempiere.table@@",
+        "type": "textfield"
+      }
+    ]
+  }
+]

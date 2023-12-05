@@ -5,6 +5,7 @@
       {
         "name": "labelField",
         "label": "@@idempiere.labelField@@",
+        "description": "@@idempiere.labelField.desc@@",
         "type": "textfield",
         "required": "true"
       }

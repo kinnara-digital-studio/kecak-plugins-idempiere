@@ -43,7 +43,6 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
 
     @Override
     public FormRowSet loadAjaxOptions(String[] dependencyValues) {
-
         try {
             final String valueField = getValueField();
             final String labelField = getLabelField();
