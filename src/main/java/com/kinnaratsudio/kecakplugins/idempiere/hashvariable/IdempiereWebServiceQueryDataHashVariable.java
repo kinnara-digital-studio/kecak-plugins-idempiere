@@ -68,7 +68,7 @@ public class IdempiereWebServiceQueryDataHashVariable extends DefaultHashVariabl
             ModelOrientedWebService webService = builder.build();
             final WebServiceResponse response = webService.execute();
 
-            if(response instanceof WindowTabData) {
+            if (response instanceof WindowTabData) {
                 final DataRow[] dataRows = ((WindowTabData) response).getDataRows();
                 return Optional.ofNullable(dataRows)
                         .map(Arrays::stream)
@@ -177,7 +177,7 @@ public class IdempiereWebServiceQueryDataHashVariable extends DefaultHashVariabl
     protected Integer getWarehouseId() {
         try {
             return Integer.parseInt(AppUtil.processHashVariable("#idempiereConfig.warehouseId#", null, null, null));
-        }catch (NumberFormatException e) {
+        } catch (NumberFormatException e) {
             return null;
         }
     }

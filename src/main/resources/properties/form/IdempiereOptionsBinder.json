@@ -17,6 +17,11 @@
         "name": "groupingField",
         "label": "@@idempiere.groupingField@@",
         "type": "textfield"
+      },
+      {
+        "name": "emptyLabel",
+        "label": "@@idempiere.emptyLabel@@",
+        "type": "textfield"
       }
     ]
   }

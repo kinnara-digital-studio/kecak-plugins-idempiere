@@ -68,7 +68,16 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
 
                         return row;
                     })
-                    .collect(Collectors.toCollection(FormRowSet::new));
+                    .collect(Collectors.toCollection(() -> {
+                        final FormRow emptyRow = new FormRow();
+                        emptyRow.put(FormUtil.PROPERTY_VALUE, "");
+                        emptyRow.put(FormUtil.PROPERTY_LABEL, getEmptyLabel());
+
+                        final FormRowSet rowSet = new FormRowSet();
+                        rowSet.add(emptyRow);
+
+                        return rowSet;
+                    }));
 
 //            final Cache cache = (Cache) AppUtil.getApplicationContext().getBean("formOptionsCache");
 //
@@ -290,5 +299,9 @@ public class IdempiereOptionsBinder extends FormBinder implements FormLoadOption
         } catch (WebServiceBuilderException | WebServiceResponseException | WebServiceRequestException e) {
             throw new IdempiereClientException(e);
         }
+    }
+
+    protected String getEmptyLabel() {
+        return getPropertyString("emptyLabel").isEmpty() ? "-" : getPropertyString("emptyLabel");
     }
 }
