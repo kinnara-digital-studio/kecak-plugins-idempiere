@@ -286,9 +286,9 @@ public class IdempiereStoreFormBinder extends FormBinder implements FormStoreEle
                 .setDocAction(docAction)
                 .setDataRow(dataRow);
 
-        Optional.ofNullable(row.getId())
-                .map(Integer::valueOf)
-                .filter(i -> i > 0)
+        Optional.of(formData)
+                .map(FormData::getPrimaryKeyValue)
+                .map(Try.onFunction(Integer::parseInt))
                 .ifPresent(builder::setRecordId);
 
         if (isIgnoreCertificateError()) {

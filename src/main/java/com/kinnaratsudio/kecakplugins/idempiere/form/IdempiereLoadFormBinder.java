@@ -60,7 +60,9 @@ public class IdempiereLoadFormBinder extends FormBinder implements FormLoadEleme
                     .map(e -> {
                         final String column = e.getKey();
                         final String value = e.getValue();
-                        if (value.startsWith("@")) {
+                        if(value.equalsIgnoreCase("@id") && intPrimaryKey > 0) {
+                            return new FieldEntry(column, intPrimaryKey);
+                        } else if (value.startsWith("@")) {
                             return new FieldEntry(column, formData.getRequestParameter(value.replaceAll("^@", "")));
                         } else {
                             return new FieldEntry(column, value);
