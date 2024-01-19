@@ -14,12 +14,13 @@ import org.joget.plugin.base.PluginManager;
 
 import javax.annotation.Nullable;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Usage : idempiereData.SERVICE.COLUMN.id.VALUE
- * Usage : idempiereData.SERVICE.COLUMN.Value.VALUE
- * Usage : idempiereData.SERVICE.COLUMN.Name.VALUE
+ * Usage : idempiereQueryData.SERVICE.COLUMN.id.VALUE
+ * Usage : idempiereQueryData.SERVICE.COLUMN.Value.VALUE
+ * Usage : idempiereQueryData.SERVICE.COLUMN.Name.VALUE
  * <p>
  * Returns RecordID for particular value or name
  */
@@ -54,8 +55,7 @@ public class IdempiereWebServiceQueryDataHashVariable extends DefaultHashVariabl
                     .setBaseUrl(getBaseUrl())
                     .setLoginRequest(new LoginRequest(username, password, language, clientId, roleId, orgId, warehouseId))
                     .setMethod(getMethod())
-                    .ignoreSslCertificateError()
-                    .setLimit(1);
+                    .ignoreSslCertificateError();
 
             if (filter.equals("Id")) {
                 builder.setRecordId(Integer.parseInt(value));
@@ -77,9 +77,10 @@ public class IdempiereWebServiceQueryDataHashVariable extends DefaultHashVariabl
                         .flatMap(Arrays::stream)
                         .filter(fe -> column.equalsIgnoreCase(fe.getColumn()))
                         .map(FieldEntry::getValue)
-                        .findFirst()
+//                        .findFirst()
                         .map(String::valueOf)
-                        .orElse("");
+//                        .orElse("");
+                        .collect(Collectors.joining(";"));
             }
             return "";
         } catch (IdempiereClientException | WebServiceBuilderException | WebServiceRequestException |
@@ -130,8 +131,9 @@ public class IdempiereWebServiceQueryDataHashVariable extends DefaultHashVariabl
         };
 
         final Collection<String> syntax = new ArrayList<>();
+        syntax.add(getPrefix() + ".QUERY_SERVICE.GET_COLUMN.FIELD_INPUT_NAME.FIELD_INPUT_VALUE");
         for (String field : fields) {
-            syntax.add(getPrefix() + ".QUERY_SERVICE.COLUMN." + field + ".PARAM_VALUE");
+            syntax.add(getPrefix() + ".QUERY_SERVICE.GET_COLUMN." + field + ".PARAM_VALUE");
         }
 
         return syntax;
