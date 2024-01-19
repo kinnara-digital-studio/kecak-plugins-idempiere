@@ -77,9 +77,7 @@ public class IdempiereWebServiceQueryDataHashVariable extends DefaultHashVariabl
                         .flatMap(Arrays::stream)
                         .filter(fe -> column.equalsIgnoreCase(fe.getColumn()))
                         .map(FieldEntry::getValue)
-//                        .findFirst()
                         .map(String::valueOf)
-//                        .orElse("");
                         .collect(Collectors.joining(";"));
             }
             return "";
