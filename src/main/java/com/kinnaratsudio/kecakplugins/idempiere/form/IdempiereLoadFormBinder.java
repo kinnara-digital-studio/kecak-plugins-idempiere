@@ -33,7 +33,7 @@ public class IdempiereLoadFormBinder extends FormBinder implements FormLoadEleme
     @Override
     public FormRowSet load(Element form, String primaryKey, FormData formData) {
         final boolean isDebug = isDebug();
-        if (isDebug()) {
+        if (isDebug) {
             LogUtil.info(getClass().getName(), "load : primaryKey [" + primaryKey + "]");
 
 
