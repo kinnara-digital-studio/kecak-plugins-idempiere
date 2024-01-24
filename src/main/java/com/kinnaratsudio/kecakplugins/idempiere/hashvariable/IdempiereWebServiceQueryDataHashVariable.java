@@ -61,8 +61,7 @@ public class IdempiereWebServiceQueryDataHashVariable extends DefaultHashVariabl
                 builder.setRecordId(Integer.parseInt(value));
             } else {
                 builder.setDataRow(new DataRow(new FieldEntry[]{
-                        new FieldEntry(filter, value),
-                        new FieldEntry("IsActive", true)
+                        new FieldEntry(filter, value)
                 }));
             }
 
