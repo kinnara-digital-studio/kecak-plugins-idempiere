@@ -78,7 +78,9 @@ public class IdempiereWebServiceQueryDataHashVariable extends DefaultHashVariabl
                         .filter(fe -> column.equalsIgnoreCase(fe.getColumn()))
                         .map(FieldEntry::getValue)
                         .map(String::valueOf)
-                        .collect(Collectors.joining(";"));
+                        .findFirst()
+                        .orElse("");
+//                        .collect(Collectors.joining(";"));
             }
             return "";
         } catch (IdempiereClientException | WebServiceBuilderException | WebServiceRequestException |
